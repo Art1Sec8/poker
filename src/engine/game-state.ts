@@ -288,7 +288,6 @@ export function resolveShowdown(state: GameState): GameState {
   if (activePlayers.length === 1) {
     // Last player standing wins everything
     activePlayers[0].chips += newState.pot;
-    newState.pot = 0;
     newState.isHandComplete = true;
     return newState;
   }
@@ -335,7 +334,6 @@ export function resolveShowdown(state: GameState): GameState {
     if (winner) winner.chips += unawarded;
   }
 
-  newState.pot = 0;
   newState.isHandComplete = true;
   return newState;
 }

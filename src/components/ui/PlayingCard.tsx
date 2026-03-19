@@ -49,7 +49,7 @@ export function PlayingCard({ card, faceDown = false, size = 'md', className = '
   }
 
   const display = cardToDisplay(card!);
-  const textColor = display.isRed ? 'text-red-600' : 'text-white';
+  const textColor = display.isRed ? 'text-red-600' : 'text-gray-900';
 
   return (
     <motion.div
