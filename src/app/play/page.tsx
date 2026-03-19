@@ -262,8 +262,8 @@ export default function PlayPage() {
                   const human = game.state!.players.find(p => p.isHuman);
                   const prevChips = game.handHistory.length > 1
                     ? game.handHistory[game.handHistory.length - 2]?.players.find(p => p.isHuman)?.chips
-                    : undefined;
-                  const diff = human && prevChips ? human.chips - prevChips : 0;
+                    : buyIn;
+                  const diff = human && prevChips !== undefined ? human.chips - prevChips : 0;
                   if (diff > 0) return `You won $${diff}!`;
                   if (diff < 0) return `You lost $${Math.abs(diff)}`;
                   return 'Push';
