@@ -40,8 +40,9 @@ function BottomNav() {
         <NavItem href="/" icon="🏠" label="Home" />
         <NavItem href="/quiz" icon="🎯" label="Quiz" />
         <NavItem href="/ranges" icon="📊" label="Ranges" />
-        <NavItem href="/equity" icon="📈" label="Equity" />
         <NavItem href="/play" icon="🃏" label="Play" />
+        <NavItem href="/multiplayer" icon="👥" label="Multi" />
+        <NavItem href="/history" icon="📜" label="History" />
       </div>
     </nav>
   );

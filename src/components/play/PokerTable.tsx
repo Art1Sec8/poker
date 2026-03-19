@@ -1,14 +1,34 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { GameState, PlayerState } from '@/engine/types';
+import { ActionRecord, GameState, PlayerState } from '@/engine/types';
 import { CardGroup } from '@/components/ui/PlayingCard';
-import { cardToDisplay } from '@/engine/card';
 
 interface PokerTableProps {
   state: GameState;
   timerSeconds: number;
   isTimerRunning: boolean;
+}
+
+function getLastAction(state: GameState, playerId: number): ActionRecord | undefined {
+  for (let i = state.actionHistory.length - 1; i >= 0; i--) {
+    if (state.actionHistory[i].playerId === playerId && state.actionHistory[i].street === state.street) {
+      return state.actionHistory[i];
+    }
+  }
+  return undefined;
+}
+
+function actionLabelStyle(type: string): string {
+  switch (type) {
+    case 'fold': return 'bg-red-900/40 text-red-300/70';
+    case 'check': return 'bg-steel/20 text-blue-300/70';
+    case 'call': return 'bg-steel/20 text-blue-300/70';
+    case 'bet':
+    case 'raise': return 'bg-gold/15 text-gold/80';
+    case 'allin': return 'bg-gold/25 text-gold';
+    default: return 'bg-midnight/50 text-gold/40';
+  }
 }
 
 export function PokerTable({ state, timerSeconds, isTimerRunning }: PokerTableProps) {
@@ -62,6 +82,7 @@ export function PokerTable({ state, timerSeconds, isTimerRunning }: PokerTablePr
               showCards={state.isHandComplete}
               timerSeconds={timerSeconds}
               isTimerRunning={isTimerRunning && state.currentPlayerIndex === state.players.indexOf(opp)}
+              lastAction={getLastAction(state, opp.id)}
             />
           </div>
         );
@@ -77,6 +98,7 @@ export function PokerTable({ state, timerSeconds, isTimerRunning }: PokerTablePr
             isHero
             timerSeconds={timerSeconds}
             isTimerRunning={isTimerRunning && state.currentPlayerIndex === state.players.indexOf(humanPlayer)}
+            lastAction={getLastAction(state, humanPlayer.id)}
           />
         </div>
       )}
@@ -96,7 +118,7 @@ export function PokerTable({ state, timerSeconds, isTimerRunning }: PokerTablePr
 }
 
 function PlayerSeat({
-  player, isActive, showCards, isHero = false, timerSeconds, isTimerRunning,
+  player, isActive, showCards, isHero = false, timerSeconds, isTimerRunning, lastAction,
 }: {
   player: PlayerState;
   isActive: boolean;
@@ -104,6 +126,7 @@ function PlayerSeat({
   isHero?: boolean;
   timerSeconds: number;
   isTimerRunning: boolean;
+  lastAction?: ActionRecord;
 }) {
   return (
     <div className={`flex flex-col items-center gap-1 ${!player.isActive ? 'opacity-40' : ''}`}>
@@ -162,6 +185,18 @@ function PlayerSeat({
           className="text-[10px] text-gold/70 font-semibold bg-midnight/80 px-2 py-0.5 rounded-full"
         >
           ${player.currentBet}
+        </motion.div>
+      )}
+
+      {/* Last action label */}
+      {lastAction && (
+        <motion.div
+          key={`${lastAction.type}-${lastAction.timestamp}`}
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${actionLabelStyle(lastAction.type)}`}
+        >
+          {lastAction.type}{lastAction.amount > 0 ? ` $${lastAction.amount}` : ''}
         </motion.div>
       )}
     </div>

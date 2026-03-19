@@ -21,18 +21,32 @@ const features = [
     gradient: 'from-emerald-900/40 to-emerald-950/60',
   },
   {
+    href: '/play',
+    title: 'Play vs AI',
+    description: 'Practice against AI with coaching',
+    icon: '🃏',
+    gradient: 'from-red-900/40 to-red-950/60',
+  },
+  {
+    href: '/multiplayer',
+    title: 'Multiplayer',
+    description: 'Play live with friends online',
+    icon: '👥',
+    gradient: 'from-purple-900/40 to-purple-950/60',
+  },
+  {
     href: '/equity',
-    title: 'Equity Calculator',
+    title: 'Equity Calc',
     description: 'Calculate hand vs hand equity',
     icon: '📈',
     gradient: 'from-blue-900/40 to-blue-950/60',
   },
   {
-    href: '/play',
-    title: 'Play',
-    description: 'Play with friends & AI opponents',
-    icon: '🃏',
-    gradient: 'from-red-900/40 to-red-950/60',
+    href: '/history',
+    title: 'Hand History',
+    description: 'Review and replay past hands',
+    icon: '📜',
+    gradient: 'from-teal-900/40 to-teal-950/60',
   },
 ];
 
