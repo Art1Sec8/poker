@@ -1,4 +1,7 @@
 import { ActionRecord, GameState } from '../types';
+import { FishAI } from './fish-ai';
+import { RegularAI } from './regular-ai';
+import { SharkAI } from './shark-ai';
 
 export interface AIPlayer {
   difficulty: 'fish' | 'regular' | 'shark';
@@ -11,11 +14,8 @@ export function createAIPlayer(difficulty: 'fish' | 'regular' | 'shark' | 'rando
     : difficulty;
 
   switch (actualDifficulty) {
-    case 'fish':
-      return new (require('./fish-ai').FishAI)();
-    case 'regular':
-      return new (require('./regular-ai').RegularAI)();
-    case 'shark':
-      return new (require('./shark-ai').SharkAI)();
+    case 'fish': return new FishAI();
+    case 'regular': return new RegularAI();
+    case 'shark': return new SharkAI();
   }
 }

@@ -1,4 +1,5 @@
-import { ActionRecord, ActionType, GameState, ValidAction } from './types';
+import { ActionRecord, GameState, ValidAction } from './types';
+import { validateAction } from './validation';
 
 /**
  * Get valid actions for the current player.
@@ -9,9 +10,8 @@ export function getValidActions(state: GameState): ValidAction[] {
 
   const actions: ValidAction[] = [];
   const toCall = getAmountToCall(state);
-  const potAfterCall = state.pot + toCall;
 
-  // Can always fold (if there's a bet to face)
+  // Fold (if there's a bet to face)
   if (toCall > 0) {
     actions.push({ type: 'fold', minAmount: 0, maxAmount: 0 });
   }
@@ -22,9 +22,13 @@ export function getValidActions(state: GameState): ValidAction[] {
   }
 
   // Call
-  if (toCall > 0) {
-    const callAmount = Math.min(toCall, player.chips);
-    actions.push({ type: 'call', minAmount: callAmount, maxAmount: callAmount });
+  if (toCall > 0 && player.chips > 0) {
+    if (player.chips <= toCall) {
+      // Can only call all-in
+      actions.push({ type: 'allin', minAmount: player.chips, maxAmount: player.chips });
+    } else {
+      actions.push({ type: 'call', minAmount: toCall, maxAmount: toCall });
+    }
   }
 
   // Bet (if no bet to face)
@@ -38,21 +42,17 @@ export function getValidActions(state: GameState): ValidAction[] {
     }
   }
 
-  // Raise (if there's a bet to face)
+  // Raise (if there's a bet to face and enough chips)
   if (toCall > 0 && player.chips > toCall) {
     const minRaise = toCall + state.minRaise;
     const maxRaise = getMaxRaise(state);
     if (player.chips <= minRaise) {
-      actions.push({ type: 'allin', minAmount: player.chips, maxAmount: player.chips });
+      // Can only raise all-in
+      if (!actions.some(a => a.type === 'allin')) {
+        actions.push({ type: 'allin', minAmount: player.chips, maxAmount: player.chips });
+      }
     } else {
       actions.push({ type: 'raise', minAmount: minRaise, maxAmount: Math.min(maxRaise, player.chips) });
-    }
-  }
-
-  // All-in if can't afford minimum action
-  if (player.chips > 0 && !actions.some(a => a.type === 'allin')) {
-    if (toCall >= player.chips) {
-      actions.push({ type: 'allin', minAmount: player.chips, maxAmount: player.chips });
     }
   }
 
@@ -75,7 +75,6 @@ function getMaxBet(state: GameState): number {
   if (state.variant === 'plo') {
     return calculatePotLimit(state);
   }
-  // No limit hold'em: max is all chips
   return state.players[state.currentPlayerIndex].chips;
 }
 
@@ -83,32 +82,48 @@ function getMaxBet(state: GameState): number {
  * Get maximum raise amount based on game variant.
  */
 function getMaxRaise(state: GameState): number {
-  const toCall = getAmountToCall(state);
   if (state.variant === 'plo') {
     return calculatePotLimit(state);
   }
-  // No limit: max is all chips
   return state.players[state.currentPlayerIndex].chips;
 }
 
 /**
- * Calculate pot-limit max bet (for PLO).
- * Pot limit = current pot + all bets on table + amount to call, then raise by that total.
+ * Calculate pot-limit max bet/raise (for PLO).
+ *
+ * Pot-limit formula:
+ * ┌─────────────────────────────────────────────────────────────┐
+ * │  max_raise = call_amount + pot_after_call                  │
+ * │                                                             │
+ * │  pot_after_call = pot                                       │
+ * │                 + sum of all current street bets            │
+ * │                 + call_amount (what we'd put in to call)    │
+ * │                                                             │
+ * │  Example: pot=$100, opp bets $50, we have $200             │
+ * │    call_amount = $50                                        │
+ * │    pot_after_call = $100 + $50(opp bet) + $50(our call)    │
+ * │                   = $200                                    │
+ * │    max_raise = $50 + $200 = $250 total chips committed     │
+ * └─────────────────────────────────────────────────────────────┘
  */
 export function calculatePotLimit(state: GameState): number {
-  const player = state.players[state.currentPlayerIndex];
   const toCall = getAmountToCall(state);
-  const potAfterCall = state.pot + state.players.reduce((sum, p) => sum + p.currentBet, 0) + toCall;
+  // Sum of all current bets on this street (from all players, not just active)
+  const streetBets = state.players.reduce((sum, p) => sum + p.currentBet, 0);
+  const potAfterCall = state.pot + streetBets + toCall;
   return toCall + potAfterCall;
 }
 
 /**
- * Apply an action to the game state. Returns a new state.
+ * Apply an action to the game state. Validates the action first.
+ * Returns a new state (immutable).
  */
 export function applyAction(state: GameState, action: ActionRecord): GameState {
+  // Validate the action is legal
+  validateAction(state, action);
+
   const newState = structuredClone(state);
-  const player = newState.players.find(p => p.id === action.playerId);
-  if (!player) throw new Error(`Player ${action.playerId} not found`);
+  const player = newState.players.find(p => p.id === action.playerId)!;
 
   newState.actionHistory.push(action);
 
@@ -131,13 +146,15 @@ export function applyAction(state: GameState, action: ActionRecord): GameState {
 
     case 'bet':
     case 'raise': {
-      const amount = Math.min(action.amount, player.chips);
+      const amount = action.amount;
       player.chips -= amount;
       player.currentBet += amount;
       player.totalBetThisHand += amount;
       newState.pot += amount;
-      // Update min raise
-      const raiseSize = amount - getAmountToCall(state);
+      const raiseSize = player.currentBet - Math.max(
+        ...state.players.filter(p => p.isActive && p.id !== player.id).map(p => p.currentBet),
+        0
+      );
       if (raiseSize > newState.minRaise) {
         newState.minRaise = raiseSize;
       }

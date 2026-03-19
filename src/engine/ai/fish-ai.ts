@@ -14,46 +14,42 @@ export class FishAI implements AIPlayer {
   decide(state: GameState, playerIndex: number): ActionRecord {
     const tempState = { ...state, currentPlayerIndex: playerIndex };
     const actions = getValidActions(tempState);
-    const player = state.players[playerIndex];
-    const toCall = getAmountToCall(tempState);
+    if (actions.length === 0) {
+      return this.makeAction(playerIndex, 'check', 0, state.street);
+    }
 
+    const toCall = getAmountToCall(tempState);
+    const player = state.players[playerIndex];
     const roll = Math.random();
 
-    // Fish calls most of the time
     if (toCall > 0) {
-      if (roll < 0.15) {
-        // Fold occasionally (when facing big bets)
-        const potRatio = toCall / Math.max(state.pot, 1);
-        if (potRatio > 0.5 && Math.random() < 0.4) {
-          return this.makeAction(playerIndex, 'fold', 0, state.street);
-        }
-        return this.makeAction(playerIndex, 'call', toCall, state.street);
+      // Facing a bet
+      const potRatio = toCall / Math.max(state.pot, 1);
+      if (potRatio > 0.5 && roll < 0.15) {
+        return this.makeAction(playerIndex, 'fold', 0, state.street);
       }
       if (roll < 0.85) {
-        // Call
-        return this.makeAction(playerIndex, 'call', Math.min(toCall, player.chips), state.street);
+        const callAction = actions.find(a => a.type === 'call' || a.type === 'allin');
+        if (callAction) return this.makeAction(playerIndex, callAction.type, callAction.minAmount, state.street);
       }
       // Rare raise
       const raiseAction = actions.find(a => a.type === 'raise');
       if (raiseAction) {
-        const amount = raiseAction.minAmount;
-        return this.makeAction(playerIndex, 'raise', amount, state.street);
+        return this.makeAction(playerIndex, 'raise', raiseAction.minAmount, state.street);
       }
-      return this.makeAction(playerIndex, 'call', Math.min(toCall, player.chips), state.street);
+      const callAction = actions.find(a => a.type === 'call' || a.type === 'allin');
+      if (callAction) return this.makeAction(playerIndex, callAction.type, callAction.minAmount, state.street);
+      return this.makeAction(playerIndex, 'fold', 0, state.street);
     }
 
     // No bet to face
     if (roll < 0.7) {
       return this.makeAction(playerIndex, 'check', 0, state.street);
     }
-
-    // Small bet occasionally
     const betAction = actions.find(a => a.type === 'bet');
     if (betAction) {
-      const amount = betAction.minAmount;
-      return this.makeAction(playerIndex, 'bet', amount, state.street);
+      return this.makeAction(playerIndex, 'bet', betAction.minAmount, state.street);
     }
-
     return this.makeAction(playerIndex, 'check', 0, state.street);
   }
 

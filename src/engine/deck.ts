@@ -12,11 +12,21 @@ export function createDeck(): Card[] {
 }
 
 /**
- * Fisher-Yates shuffle. Mutates and returns the array.
+ * Cryptographically secure random integer in [0, max).
+ */
+function secureRandomInt(max: number): number {
+  const array = new Uint32Array(1);
+  crypto.getRandomValues(array);
+  return array[0] % max;
+}
+
+/**
+ * Fisher-Yates shuffle using crypto.getRandomValues for fairness.
+ * Mutates and returns the array.
  */
 export function shuffleDeck(deck: Card[]): Card[] {
   for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = secureRandomInt(i + 1);
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
   return deck;
@@ -33,6 +43,8 @@ export function newShuffledDeck(): Card[] {
  * Deal n cards from the top of the deck. Mutates the deck.
  */
 export function dealCards(deck: Card[], n: number): Card[] {
+  if (n < 0) throw new Error(`Cannot deal negative cards: ${n}`);
+  if (n === 0) return [];
   if (deck.length < n) throw new Error(`Cannot deal ${n} cards from deck of ${deck.length}`);
   return deck.splice(0, n);
 }
