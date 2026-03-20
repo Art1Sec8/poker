@@ -1,7 +1,12 @@
 'use client';
 
 import { GameProvider } from '@/context/GameContext';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  return <GameProvider>{children}</GameProvider>;
+  return (
+    <ErrorBoundary>
+      <GameProvider>{children}</GameProvider>
+    </ErrorBoundary>
+  );
 }

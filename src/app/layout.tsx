@@ -22,7 +22,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased dark">
+    <html lang="en" className="h-full antialiased dark" data-scroll-behavior="smooth">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+      </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <Providers>
           {children}
@@ -40,8 +45,9 @@ function BottomNav() {
         <NavItem href="/" icon="🏠" label="Home" />
         <NavItem href="/quiz" icon="🎯" label="Quiz" />
         <NavItem href="/ranges" icon="📊" label="Ranges" />
-        <NavItem href="/equity" icon="📈" label="Equity" />
         <NavItem href="/play" icon="🃏" label="Play" />
+        <NavItem href="/multiplayer" icon="👥" label="Multi" />
+        <NavItem href="/history" icon="📜" label="History" />
       </div>
     </nav>
   );

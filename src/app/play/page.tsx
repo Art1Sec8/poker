@@ -1,20 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '@/context/GameContext';
 import { useGameState } from '@/hooks/useGameState';
+import { useCoach } from '@/hooks/useCoach';
 import { GameVariantToggle } from '@/components/shared/GameVariantToggle';
 import { StakesSelector } from '@/components/shared/StakesSelector';
 import { PokerTable } from '@/components/play/PokerTable';
 import { BettingControls } from '@/components/play/BettingControls';
 import { SessionStats } from '@/components/play/SessionStats';
+import { CoachPanel } from '@/components/play/CoachPanel';
+import { ActionType } from '@/engine/types';
 
 type AIDifficulty = 'fish' | 'regular' | 'shark' | 'random';
 
 export default function PlayPage() {
   const { variant } = useGame();
   const game = useGameState();
+  const coach = useCoach();
   const [isSetup, setIsSetup] = useState(true);
   const [numAI, setNumAI] = useState(2);
   const [aiDifficulty, setAIDifficulty] = useState<AIDifficulty>('regular');
@@ -32,7 +36,6 @@ export default function PlayPage() {
       aiSeats,
     });
     setIsSetup(false);
-    // Will start first hand after state initializes
   }
 
   // Start first hand after game setup
@@ -41,6 +44,54 @@ export default function PlayPage() {
       game.startNewHand();
     }
   }, [isSetup, game.state]);
+
+  // Get coach advice when it's player's turn
+  useEffect(() => {
+    if (game.isPlayerTurn && game.state && coach.coachEnabled) {
+      coach.getAdvice(game.state);
+    }
+  }, [game.isPlayerTurn, game.state?.street, game.state?.handNumber, coach.coachEnabled]);
+
+  // Clear coach review on new hand
+  useEffect(() => {
+    if (game.state && !game.state.isHandComplete) {
+      coach.clearReview();
+    }
+  }, [game.state?.handNumber]);
+
+  // Save hand history to localStorage
+  useEffect(() => {
+    if (game.state?.isHandComplete && game.handHistory.length > 0) {
+      try {
+        const existing = JSON.parse(localStorage.getItem('poker-hand-history') || '[]');
+        const lastHand = game.handHistory[game.handHistory.length - 1];
+        existing.push({
+          timestamp: Date.now(),
+          handNumber: lastHand.handNumber,
+          variant: lastHand.variant,
+          board: lastHand.board,
+          players: lastHand.players.map(p => ({
+            id: p.id, name: p.name, chips: p.chips,
+            holeCards: p.holeCards, position: p.position, isActive: p.isActive,
+          })),
+          pot: lastHand.pot,
+          actionHistory: lastHand.actionHistory,
+          smallBlind: lastHand.smallBlind,
+          bigBlind: lastHand.bigBlind,
+        });
+        // Keep last 50 hands
+        const trimmed = existing.slice(-50);
+        localStorage.setItem('poker-hand-history', JSON.stringify(trimmed));
+      } catch { /* ignore storage errors */ }
+    }
+  }, [game.state?.isHandComplete, game.handHistory.length]);
+
+  const handleAction = useCallback((type: ActionType, amount?: number) => {
+    if (game.state && coach.coachEnabled) {
+      coach.reviewAction(game.state, type, amount ?? 0);
+    }
+    game.performAction(type, amount);
+  }, [game.state, game.performAction, coach]);
 
   // Setup screen
   if (isSetup) {
@@ -167,6 +218,16 @@ export default function PlayPage() {
       {/* Stats overlay */}
       <SessionStats stats={game.sessionStats} isOpen={showStats} onToggle={() => setShowStats(!showStats)} />
 
+      {/* Coach panel */}
+      <CoachPanel
+        enabled={coach.coachEnabled}
+        onToggle={coach.toggleCoach}
+        analysis={coach.analysis}
+        isLoading={coach.isLoading}
+        handReview={coach.handReview}
+        showReview={game.state.isHandComplete}
+      />
+
       {/* Hand number */}
       <div className="text-center text-[10px] text-gold/40 uppercase tracking-widest font-semibold mb-1">
         Hand #{game.state.handNumber}
@@ -180,6 +241,8 @@ export default function PlayPage() {
           isTimerRunning={game.isTimerRunning}
         />
       </div>
+
+      {/* Coach hand review (shown between hand complete overlay and controls) */}
 
       {/* Hand complete overlay */}
       <AnimatePresence>
@@ -199,8 +262,8 @@ export default function PlayPage() {
                   const human = game.state!.players.find(p => p.isHuman);
                   const prevChips = game.handHistory.length > 1
                     ? game.handHistory[game.handHistory.length - 2]?.players.find(p => p.isHuman)?.chips
-                    : undefined;
-                  const diff = human && prevChips ? human.chips - prevChips : 0;
+                    : buyIn;
+                  const diff = human && prevChips !== undefined ? human.chips - prevChips : 0;
                   if (diff > 0) return `You won $${diff}!`;
                   if (diff < 0) return `You lost $${Math.abs(diff)}`;
                   return 'Push';
@@ -223,7 +286,7 @@ export default function PlayPage() {
           <BettingControls
             validActions={game.validActions}
             pot={game.state.pot}
-            onAction={game.performAction}
+            onAction={handleAction}
             disabled={!game.isPlayerTurn}
           />
         </div>

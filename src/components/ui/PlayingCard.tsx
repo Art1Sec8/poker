@@ -12,6 +12,7 @@ interface PlayingCardProps {
   delay?: number;
   onClick?: () => void;
   selected?: boolean;
+  winner?: boolean;
 }
 
 const SIZES = {
@@ -20,7 +21,7 @@ const SIZES = {
   lg: { width: 80, height: 116, rankSize: 'text-lg', suitSize: 'text-base', centerSize: 'text-3xl' },
 };
 
-export function PlayingCard({ card, faceDown = false, size = 'md', className = '', delay = 0, onClick, selected }: PlayingCardProps) {
+export function PlayingCard({ card, faceDown = false, size = 'md', className = '', delay = 0, onClick, selected, winner = false }: PlayingCardProps) {
   const dims = SIZES[size];
   const showFace = card !== undefined && !faceDown;
 
@@ -48,7 +49,7 @@ export function PlayingCard({ card, faceDown = false, size = 'md', className = '
   }
 
   const display = cardToDisplay(card!);
-  const textColor = display.isRed ? 'text-red-600' : 'text-white';
+  const textColor = display.isRed ? 'text-red-600' : 'text-gray-900';
 
   return (
     <motion.div
@@ -57,7 +58,7 @@ export function PlayingCard({ card, faceDown = false, size = 'md', className = '
       transition={{ duration: 0.5, delay, type: 'spring', stiffness: 120 }}
       whileHover={{ y: -4, transition: { duration: 0.15 } }}
       onClick={onClick}
-      className={`relative rounded-lg shadow-xl cursor-default select-none ${selected ? 'ring-2 ring-amber-400 -translate-y-2' : ''} ${onClick ? 'cursor-pointer' : ''} ${className}`}
+      className={`relative rounded-lg shadow-xl cursor-default select-none ${selected ? 'ring-2 ring-amber-400 -translate-y-2' : ''} ${winner ? 'ring-2 ring-gold glow-gold' : ''} ${onClick ? 'cursor-pointer' : ''} ${className}`}
       style={{ width: dims.width, height: dims.height, perspective: 800 }}
     >
       {/* Card face */}

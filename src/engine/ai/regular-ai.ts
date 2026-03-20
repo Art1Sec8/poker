@@ -39,7 +39,7 @@ export class RegularAI implements AIPlayer {
         }
       }
 
-      if (adjustedStrength > potOdds + 0.05) {
+      if (adjustedStrength > potOdds - 0.05) {
         const callAction = actions.find(a => a.type === 'call' || a.type === 'allin');
         if (callAction) return this.makeAction(playerIndex, callAction.type, callAction.minAmount, state.street);
       }

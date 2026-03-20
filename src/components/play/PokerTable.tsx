@@ -1,14 +1,34 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { GameState, PlayerState } from '@/engine/types';
+import { ActionRecord, GameState, PlayerState } from '@/engine/types';
 import { CardGroup } from '@/components/ui/PlayingCard';
-import { cardToDisplay } from '@/engine/card';
 
 interface PokerTableProps {
   state: GameState;
   timerSeconds: number;
   isTimerRunning: boolean;
+}
+
+function getLastAction(state: GameState, playerId: number): ActionRecord | undefined {
+  for (let i = state.actionHistory.length - 1; i >= 0; i--) {
+    if (state.actionHistory[i].playerId === playerId && state.actionHistory[i].street === state.street) {
+      return state.actionHistory[i];
+    }
+  }
+  return undefined;
+}
+
+function actionLabelStyle(type: string): string {
+  switch (type) {
+    case 'fold': return 'bg-red-900/40 text-red-300/70';
+    case 'check': return 'bg-steel/20 text-blue-300/70';
+    case 'call': return 'bg-steel/20 text-blue-300/70';
+    case 'bet':
+    case 'raise': return 'bg-gold/15 text-gold/80';
+    case 'allin': return 'bg-gold/25 text-gold';
+    default: return 'bg-midnight/50 text-gold/40';
+  }
 }
 
 export function PokerTable({ state, timerSeconds, isTimerRunning }: PokerTableProps) {
@@ -38,7 +58,7 @@ export function PokerTable({ state, timerSeconds, isTimerRunning }: PokerTablePr
       </div>
 
       {/* Board cards */}
-      <div className="absolute top-[42%] left-1/2 -translate-x-1/2 z-10">
+      <div className="absolute top-[38%] left-1/2 -translate-x-1/2 z-10">
         {state.board.length > 0 && (
           <CardGroup cards={state.board} size="sm" overlap={false} />
         )}
@@ -60,8 +80,10 @@ export function PokerTable({ state, timerSeconds, isTimerRunning }: PokerTablePr
               player={opp}
               isActive={state.currentPlayerIndex === state.players.indexOf(opp)}
               showCards={state.isHandComplete}
+              isDealer={state.dealerIndex === state.players.indexOf(opp)}
               timerSeconds={timerSeconds}
               isTimerRunning={isTimerRunning && state.currentPlayerIndex === state.players.indexOf(opp)}
+              lastAction={getLastAction(state, opp.id)}
             />
           </div>
         );
@@ -69,41 +91,35 @@ export function PokerTable({ state, timerSeconds, isTimerRunning }: PokerTablePr
 
       {/* Human player seat (bottom center) */}
       {humanPlayer && (
-        <div className="absolute bottom-[5%] left-1/2 -translate-x-1/2 z-10">
+        <div className="absolute bottom-[-2%] left-1/2 -translate-x-1/2 z-10">
           <PlayerSeat
             player={humanPlayer}
             isActive={state.currentPlayerIndex === state.players.indexOf(humanPlayer)}
             showCards={true}
             isHero
+            isDealer={state.dealerIndex === state.players.indexOf(humanPlayer)}
             timerSeconds={timerSeconds}
             isTimerRunning={isTimerRunning && state.currentPlayerIndex === state.players.indexOf(humanPlayer)}
+            lastAction={getLastAction(state, humanPlayer.id)}
           />
         </div>
       )}
 
-      {/* Dealer button */}
-      <div
-        className="absolute z-20 w-6 h-6 rounded-full bg-gradient-to-br from-gold to-gold-dark text-background text-[9px] font-black flex items-center justify-center shadow-lg"
-        style={{
-          left: `${50 + 30 * Math.cos(Math.PI * 0.5 + (state.dealerIndex * 2 * Math.PI) / state.players.length)}%`,
-          top: `${50 + 25 * Math.sin(Math.PI * 0.5 + (state.dealerIndex * 2 * Math.PI) / state.players.length)}%`,
-        }}
-      >
-        D
-      </div>
     </div>
   );
 }
 
 function PlayerSeat({
-  player, isActive, showCards, isHero = false, timerSeconds, isTimerRunning,
+  player, isActive, showCards, isHero = false, isDealer = false, timerSeconds, isTimerRunning, lastAction,
 }: {
   player: PlayerState;
   isActive: boolean;
   showCards: boolean;
   isHero?: boolean;
+  isDealer?: boolean;
   timerSeconds: number;
   isTimerRunning: boolean;
+  lastAction?: ActionRecord;
 }) {
   return (
     <div className={`flex flex-col items-center gap-1 ${!player.isActive ? 'opacity-40' : ''}`}>
@@ -112,6 +128,13 @@ function PlayerSeat({
         isActive ? 'ring-2 ring-gold shadow-lg shadow-gold/20' : 'ring-1 ring-white/10'
       } bg-midnight`}>
         {player.name.charAt(0)}
+
+        {/* Dealer button */}
+        {isDealer && (
+          <div className="absolute -right-2 -top-2 z-20 w-5 h-5 rounded-full bg-gradient-to-br from-gold to-gold-dark text-background text-[8px] font-black flex items-center justify-center shadow-lg">
+            D
+          </div>
+        )}
 
         {/* Timer ring */}
         {isActive && isTimerRunning && (
@@ -162,6 +185,18 @@ function PlayerSeat({
           className="text-[10px] text-gold/70 font-semibold bg-midnight/80 px-2 py-0.5 rounded-full"
         >
           ${player.currentBet}
+        </motion.div>
+      )}
+
+      {/* Last action label */}
+      {lastAction && (
+        <motion.div
+          key={`${lastAction.type}-${lastAction.timestamp}`}
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${actionLabelStyle(lastAction.type)}`}
+        >
+          {lastAction.type}{lastAction.amount > 0 ? ` $${lastAction.amount}` : ''}
         </motion.div>
       )}
     </div>

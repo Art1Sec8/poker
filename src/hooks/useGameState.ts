@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from 'react';
 import {
   ActionRecord, ActionType, GameState, GameVariant, PlayerState,
 } from '@/engine/types';
-import { createNewHand, advanceStreet, isStreetComplete, isHandOver, getNextPlayerIndex } from '@/engine/game-state';
+import { createNewHand, advanceStreet, isStreetComplete, isHandOver, getNextPlayerIndex, resolveShowdown } from '@/engine/game-state';
 import { applyAction, getValidActions } from '@/engine/betting';
 import { createAIPlayer, AIPlayer } from '@/engine/ai/ai-player';
 
@@ -109,7 +109,6 @@ export function useGameState(): UseGameStateReturn {
 
       // Check if hand is over
       if (isHandOver(current)) {
-        const { resolveShowdown } = require('@/engine/game-state');
         current = resolveShowdown(current);
         break;
       }

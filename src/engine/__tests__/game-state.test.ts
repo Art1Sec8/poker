@@ -162,7 +162,7 @@ describe('resolveShowdown', () => {
     state.players[1].isActive = false;
     const resolved = resolveShowdown(state);
     expect(resolved.isHandComplete).toBe(true);
-    expect(resolved.pot).toBe(0);
+    expect(resolved.pot).toBe(15); // pot preserved for display after hand completes
     expect(resolved.players[0].chips).toBeGreaterThan(990); // got the pot
   });
 });

@@ -30,18 +30,20 @@ function evaluateHoldemPreflopStrength(cards: Card[]): number {
   }
 
   let strength = 0;
-  // High card contribution
-  strength += (high / 12) * 0.30;
+  // High card contribution (scaled up for realistic equity approximation)
+  strength += (high / 12) * 0.40;
   // Low card contribution
-  strength += (low / 12) * 0.15;
+  strength += (low / 12) * 0.20;
   // Suitedness bonus
-  if (suited) strength += 0.06;
+  if (suited) strength += 0.08;
   // Connectivity bonus
-  if (gap === 1) strength += 0.05;
-  else if (gap === 2) strength += 0.03;
-  else if (gap === 3) strength += 0.01;
+  if (gap === 1) strength += 0.06;
+  else if (gap === 2) strength += 0.04;
+  else if (gap === 3) strength += 0.02;
+  // Broadway bonus (both cards T+)
+  if (high >= 8 && low >= 8) strength += 0.05;
 
-  return Math.min(0.95, Math.max(0, strength));
+  return Math.min(0.95, Math.max(0.10, strength));
 }
 
 function evaluatePloPreflopStrength(cards: Card[]): number {

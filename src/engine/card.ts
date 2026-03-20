@@ -32,7 +32,7 @@ export function cardToDisplay(card: Card): { rank: string; suit: string; suitSym
   const r = cardRank(card);
   const s = cardSuit(card);
   return {
-    rank: RANK_CHARS[r],
+    rank: r === 8 ? '10' : RANK_CHARS[r],
     suit: SUIT_NAMES[s],
     suitSymbol: SUIT_SYMBOLS[s],
     isRed: s === 1 || s === 2, // diamonds or hearts
