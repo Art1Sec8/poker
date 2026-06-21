@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Poker Trainer
 
-## Getting Started
+A Next.js (App Router) + React + TypeScript + Tailwind poker‑training app. Alongside the
+quiz, play‑vs‑AI, equity, and multiplayer tools, it includes the **Hold'em Range Trainer**.
 
-First, run the development server:
+## Range Trainer
+
+Train No‑Limit Hold'em **range intuition**:
+
+1. Pick a focus (**Preflop** or **Flop**) and **Deal a spot** — positions, stack depth, the
+   action so far, and exactly whose range to build.
+2. **Paint** the range onto the 13×13 hand grid (tap to toggle, click‑drag to paint a region).
+3. **Check my range** — the grid lights up with a color diff (green = correct, red = too loose,
+   gold = missed) and an AI coach explains *why*, in terms of position, board texture,
+   blockers/combos, and equity.
+4. Ask **follow‑up questions** about that exact spot ("why is A5s in but A9o out?").
+5. **Walk me through it** builds the range from scratch and reveals it on the grid.
+
+Grading is pure set math and runs locally (no API needed). The Anthropic API is called **only**
+from the server‑side route handler at `src/app/api/range-coach/route.ts`; the API key is read from
+`ANTHROPIC_API_KEY` and **never reaches the browser**.
+
+> Note on the route path: the codebase already ships a different coach at `/api/coach` (the
+> play‑vs‑AI hand coach), so the Range Trainer uses `/api/range-coach` to avoid clobbering it.
+> The security architecture is identical — server‑side only, key never sent to the client.
+
+## Install & run
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev      # http://localhost:3000  →  open /trainer
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Other scripts: `npm run build` (production build), `npm test` (Vitest), `npm run lint`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Anthropic API key (optional but recommended)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The Range Trainer works **with or without** a key:
 
-## Learn More
+- **Without a key** — Deal / paint / check / grade all work using ~10 built‑in spots, and the
+  coach panel shows that spot's written key ideas. (Live follow‑up Q&A shows a notice.)
+- **With a key** — live AI scenario generation, graded feedback, walkthroughs, and follow‑up Q&A.
 
-To learn more about Next.js, take a look at the following resources:
+To add a key:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Get one from the **Anthropic Console** → <https://console.anthropic.com/> → *API Keys*.
+2. Create a file named `.env.local` in the project root:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   ```bash
+   ANTHROPIC_API_KEY=sk-ant-...
+   ```
 
-## Deploy on Vercel
+3. Restart the dev server (`npm run dev`). `.env.local` is git‑ignored, so the key stays local.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The model is defined as a single constant `MODEL = "claude-sonnet-4-6"` in
+`src/app/api/range-coach/route.ts` — swap it there for a faster/cheaper model anytime.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## How the grid is built
+
+Rank order (rows and columns): `A K Q J T 9 8 7 6 5 4 3 2`. For cell `(i, j)`:
+
+- `i === j` → **pair** (diagonal), e.g. `AA`, `77`, `22`.
+- `i < j` → **suited** (upper‑right), higher card first + `s`, e.g. `AKs`, `T9s`.
+- `i > j` → **offsuit** (lower‑left), higher card first + `o`, e.g. `AKo`, `A5o`.
+
+So `AKs` sits one cell to the right of the `AK` diagonal, and `AKo` one cell below it. The grid
+logic, `normalizeHand` canonicalizer, and grading live in `src/lib/range-trainer/` and are covered
+by tests (`npm test`).

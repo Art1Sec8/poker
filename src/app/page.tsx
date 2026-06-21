@@ -7,6 +7,13 @@ import { parseCards } from '@/engine/card';
 
 const features = [
   {
+    href: '/trainer',
+    title: 'Range Trainer',
+    description: 'Paint ranges on the grid, get AI-coached',
+    icon: '🧩',
+    gradient: 'from-emerald-900/40 to-emerald-950/60',
+  },
+  {
     href: '/quiz',
     title: 'Hand Quiz',
     description: 'Test your decision-making under pressure',
