@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Poker
 
-## Getting Started
+A Texas Hold'em and Pot-Limit Omaha trainer. Play against AI opponents, drill preflop ranges, quiz yourself on spots, and run equity calculations. Built with Next.js, React, and socket.io.
 
-First, run the development server:
+## Features
+
+- **Play** (`/play`): heads-up or multiway against AI with a turn timer, hand history, and an optional AI coach that grades each decision.
+- **Range Academy** (`/ranges`): explore, drill, and learn preflop opening ranges by position on a hand matrix with a scorecard.
+- **Quiz** (`/quiz`): scenario-based decision quiz.
+- **Equity** (`/equity`): Monte Carlo equity calculator for Hold'em and PLO.
+- **History** (`/history`): replay past hands.
+- **Multiplayer** (`/multiplayer`): room-based play over websockets with reconnect recovery.
+
+## Running locally
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev:server     # Next.js + socket.io on http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`npm run dev` starts Next.js alone without the socket server (no multiplayer). `npm run dev:clean` is a self-healing start that clears the `.next` cache and restarts if the dev build corrupts.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Needed for |
+| --- | --- |
+| `ANTHROPIC_API_KEY` | The AI coach (`/api/coach`). Everything else works without it. |
+| `PORT` | Server port, defaults to 3000. |
 
-## Learn More
+## Tests
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm test
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Engine tests cover the hand evaluator, betting rules, game state, side pots, and range notation.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Deploy
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The repo includes a `Procfile` and `nixpacks.toml` for Railway. Any host that runs `npm run build` then `npm start` will work.
