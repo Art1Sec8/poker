@@ -39,10 +39,10 @@ export function BettingControls({ validActions, pot, onAction, disabled }: Betti
         }
         break;
       case '1': if (raiseOrBet) onAction(raiseOrBet.type, raiseOrBet.minAmount); break;
-      case '2': if (raiseOrBet) onAction(raiseOrBet.type, Math.max(raiseOrBet.minAmount, Math.floor(pot * 0.33))); break;
-      case '3': if (raiseOrBet) onAction(raiseOrBet.type, Math.max(raiseOrBet.minAmount, Math.floor(pot * 0.5))); break;
-      case '4': if (raiseOrBet) onAction(raiseOrBet.type, Math.max(raiseOrBet.minAmount, Math.floor(pot * 0.67))); break;
-      case '5': if (raiseOrBet) onAction(raiseOrBet.type, Math.max(raiseOrBet.minAmount, pot)); break;
+      case '2': if (raiseOrBet) onAction(raiseOrBet.type, Math.min(raiseOrBet.maxAmount, Math.max(raiseOrBet.minAmount, Math.floor(pot * 0.33)))); break;
+      case '3': if (raiseOrBet) onAction(raiseOrBet.type, Math.min(raiseOrBet.maxAmount, Math.max(raiseOrBet.minAmount, Math.floor(pot * 0.5)))); break;
+      case '4': if (raiseOrBet) onAction(raiseOrBet.type, Math.min(raiseOrBet.maxAmount, Math.max(raiseOrBet.minAmount, Math.floor(pot * 0.67)))); break;
+      case '5': if (raiseOrBet) onAction(raiseOrBet.type, Math.min(raiseOrBet.maxAmount, Math.max(raiseOrBet.minAmount, pot))); break;
       case '6': if (canAllin) onAction('allin', canAllin.minAmount); break;
     }
   }, [disabled, canFold, canCheck, canCall, raiseOrBet, canAllin, pot, onAction]);
@@ -110,7 +110,7 @@ export function BettingControls({ validActions, pot, onAction, disabled }: Betti
           <button
             onClick={() => onAction('fold')}
             disabled={disabled}
-            className="flex-1 py-3 rounded-xl font-bold text-sm bg-red-900/60 text-red-200 hover:bg-red-800/80 transition-all disabled:opacity-30"
+            className="flex-1 py-3.5 rounded-xl font-bold text-base bg-red-900/60 text-red-200 hover:bg-red-800/80 transition-all disabled:opacity-30"
           >
             Fold
             <span className="block text-[8px] opacity-50 mt-0.5">F</span>
@@ -122,7 +122,7 @@ export function BettingControls({ validActions, pot, onAction, disabled }: Betti
           <button
             onClick={() => onAction('check')}
             disabled={disabled}
-            className="flex-1 py-3 rounded-xl font-bold text-sm bg-steel/60 text-blue-200 hover:bg-steel/80 transition-all disabled:opacity-30"
+            className="flex-1 py-3.5 rounded-xl font-bold text-base bg-steel/60 text-blue-200 hover:bg-steel/80 transition-all disabled:opacity-30"
           >
             Check
             <span className="block text-[8px] opacity-50 mt-0.5">C</span>
@@ -132,7 +132,7 @@ export function BettingControls({ validActions, pot, onAction, disabled }: Betti
           <button
             onClick={() => onAction('call', canCall.minAmount)}
             disabled={disabled}
-            className="flex-1 py-3 rounded-xl font-bold text-sm bg-steel/60 text-blue-200 hover:bg-steel/80 transition-all disabled:opacity-30"
+            className="flex-1 py-3.5 rounded-xl font-bold text-base bg-steel/60 text-blue-200 hover:bg-steel/80 transition-all disabled:opacity-30"
           >
             Call ${canCall.minAmount}
             <span className="block text-[8px] opacity-50 mt-0.5">C</span>
@@ -151,7 +151,7 @@ export function BettingControls({ validActions, pot, onAction, disabled }: Betti
               }
             }}
             disabled={disabled}
-            className="flex-1 py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-gold-dark to-gold text-background hover:shadow-lg hover:shadow-gold/20 transition-all disabled:opacity-30"
+            className="flex-1 py-3.5 rounded-xl font-bold text-base bg-gradient-to-r from-gold-dark to-gold text-background hover:shadow-lg hover:shadow-gold/20 transition-all disabled:opacity-30"
           >
             {showSlider ? `${canRaise ? 'Raise' : 'Bet'} $${raiseAmount}` : (canRaise ? 'Raise' : 'Bet')}
             <span className="block text-[8px] opacity-50 mt-0.5">R</span>
@@ -163,7 +163,7 @@ export function BettingControls({ validActions, pot, onAction, disabled }: Betti
           <button
             onClick={() => onAction('allin', canAllin.minAmount)}
             disabled={disabled}
-            className="flex-1 py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-gold-dark to-gold text-background animate-pulse"
+            className="flex-1 py-3.5 rounded-xl font-bold text-base bg-gradient-to-r from-gold-dark to-gold text-background animate-pulse"
           >
             All-in ${canAllin.minAmount}
           </button>

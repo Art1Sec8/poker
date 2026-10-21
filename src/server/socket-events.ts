@@ -1,14 +1,36 @@
 import { Server, Socket } from 'socket.io';
 import { RoomManager, RoomConfig } from './room-manager';
 
+// How long to keep a disconnected player in their seat before folding/removing
+// them, giving brief drops (backgrounded tab, flaky wifi) time to recover.
+// This MUST be >= server.ts connectionStateRecovery.maxDisconnectionDuration,
+// otherwise the grace timer fires first and evicts the player (removing them
+// from room.players) before connectionStateRecovery can resync them — capping
+// the advertised recovery window and leaving "recovered" sockets seatless.
+const DISCONNECT_GRACE_MS = 2 * 60 * 1000;
+
 export function setupSocketHandlers(io: Server): void {
   const manager = new RoomManager(io);
+  // socketId -> pending removal timer for a player who just disconnected.
+  const disconnectTimers = new Map<string, NodeJS.Timeout>();
 
   // Cleanup empty rooms every 5 minutes
   setInterval(() => manager.cleanup(), 5 * 60 * 1000);
 
   io.on('connection', (socket: Socket) => {
-    console.log(`[Socket] Connected: ${socket.id}`);
+    console.log(`[Socket] Connected: ${socket.id}${socket.recovered ? ' (recovered)' : ''}`);
+
+    // If this socket recovered a prior session (same id), cancel its pending
+    // removal — the player never really left.
+    const pending = disconnectTimers.get(socket.id);
+    if (pending) {
+      clearTimeout(pending);
+      disconnectTimers.delete(socket.id);
+    }
+    // Re-send current room/game state so a recovered client resyncs instantly.
+    if (socket.recovered) {
+      manager.findRoomBySocket(socket.id)?.resyncPlayer(socket.id);
+    }
 
     socket.on('create-room', (config: RoomConfig, name: string) => {
       const room = manager.createRoom(config, socket.id);
@@ -105,7 +127,15 @@ export function setupSocketHandlers(io: Server): void {
 
     socket.on('disconnect', () => {
       console.log(`[Socket] Disconnected: ${socket.id}`);
-      handleLeave(socket, manager, io);
+      // Don't remove immediately — give the client a grace period to recover
+      // (connectionStateRecovery reuses the same socket id). If they don't come
+      // back in time, fold and remove them then.
+      if (disconnectTimers.has(socket.id)) return;
+      const timer = setTimeout(() => {
+        disconnectTimers.delete(socket.id);
+        handleLeave(socket, manager, io);
+      }, DISCONNECT_GRACE_MS);
+      disconnectTimers.set(socket.id, timer);
     });
   });
 }

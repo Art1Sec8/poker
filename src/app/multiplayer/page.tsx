@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '@/context/GameContext';
+import { useUI } from '@/context/UIContext';
 import { useMultiplayer } from '@/hooks/useMultiplayer';
 import { GameVariantToggle } from '@/components/shared/GameVariantToggle';
 import { PokerTable } from '@/components/play/PokerTable';
@@ -12,6 +13,7 @@ type Screen = 'lobby' | 'room' | 'playing';
 
 export default function MultiplayerPage() {
   const { variant } = useGame();
+  const { setImmersive } = useUI();
   const mp = useMultiplayer();
   const [screen, setScreen] = useState<Screen>('lobby');
   const [playerName, setPlayerName] = useState('');
@@ -39,12 +41,11 @@ export default function MultiplayerPage() {
     if (mp.gameState && screen === 'room') setScreen('playing');
   }, [mp.gameState, screen]);
 
-  // Back to room when hand completes (for re-deal)
+  // Hide the bottom nav during the live game so the table owns the screen.
   useEffect(() => {
-    if (mp.gameState?.isHandComplete && screen === 'playing') {
-      // Stay on playing screen but show deal button
-    }
-  }, [mp.gameState?.isHandComplete, screen]);
+    setImmersive(screen === 'playing');
+    return () => setImmersive(false);
+  }, [screen, setImmersive]);
 
   function handleCreateRoom() {
     if (!playerName.trim()) return;
@@ -380,19 +381,19 @@ export default function MultiplayerPage() {
   }
 
   return (
-    <main className="min-h-screen pb-4 pt-2 flex flex-col">
+    <main className="min-h-screen pt-2 flex flex-col pb-[max(0.5rem,env(safe-area-inset-bottom))]">
       {/* Header */}
       <div className="flex items-center justify-between px-4 mb-1">
-        <button onClick={handleLeave} className="text-gold-light/40 text-[10px] hover:text-gold-light uppercase tracking-widest">
+        <button onClick={handleLeave} className="text-gold-light/50 text-xs hover:text-gold-light uppercase tracking-widest py-1">
           Leave
         </button>
         <div className="text-center">
-          <div className="text-[10px] text-gold/40 uppercase tracking-widest font-semibold">
+          <div className="text-xs text-gold/50 uppercase tracking-widest font-semibold">
             Hand #{mp.gameState.handNumber}
           </div>
-          <div className="text-[8px] text-gold/30 font-mono">{mp.roomState?.id}</div>
+          <div className="text-[10px] text-gold/40 font-mono">{mp.roomState?.id}</div>
         </div>
-        <button onClick={() => setShowChat(!showChat)} className="text-gold-light/40 text-sm hover:text-gold-light">
+        <button onClick={() => setShowChat(!showChat)} className="text-gold-light/50 text-xl hover:text-gold-light">
           💬
         </button>
       </div>
@@ -408,6 +409,7 @@ export default function MultiplayerPage() {
       <div className="flex-1 flex items-center justify-center px-2">
         <PokerTable
           state={mp.gameState}
+          heroId={mp.mySeatIndex ?? undefined}
           timerSeconds={mp.turnTimer?.seconds ?? 30}
           isTimerRunning={mp.turnTimer !== null && !mp.gameState.isHandComplete}
         />
@@ -423,19 +425,37 @@ export default function MultiplayerPage() {
             className="px-4 mb-2"
           >
             <div className="glass rounded-xl p-4 text-center">
-              <p className="text-gold font-bold text-lg mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
+              <p className="text-gold font-bold text-lg mb-1" style={{ fontFamily: "'Playfair Display', serif" }}>
                 Hand Complete
               </p>
+              {mp.gameState.showdownResult && (
+                <p className="text-base font-semibold text-gold-light/90 mb-1">
+                  {(() => {
+                    const r = mp.gameState!.showdownResult!;
+                    const names = r.winners.map(w => (w.id === mp.mySeatIndex ? 'You' : w.name));
+                    const who = names.join(' & ');
+                    const verb = names.length > 1 ? 'split' : names[0] === 'You' ? 'win' : 'wins';
+                    if (r.wonByFold) return `${who} ${verb} — everyone else folded`;
+                    // If winners hold different hands (main pot vs side pot), label
+                    // each with their own hand instead of one shared description.
+                    const distinct = new Set(r.winners.map(w => w.handDescription));
+                    if (r.winners.length > 1 && distinct.size > 1) {
+                      return r.winners
+                        .map(w => `${w.id === mp.mySeatIndex ? 'You' : w.name} ${w.id === mp.mySeatIndex ? 'win' : 'wins'} with ${w.handDescription}`)
+                        .join('; ');
+                    }
+                    return `${who} ${verb} with ${r.handDescription}`;
+                  })()}
+                </p>
+              )}
+              <p className="text-sm text-gold-light/50 mb-2">Next hand starting&hellip;</p>
               {isHost && (
                 <button
                   onClick={mp.startHand}
-                  className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-gold-dark to-gold text-background hover:shadow-lg hover:shadow-gold/20 transition-all"
+                  className="w-full py-2 rounded-xl font-bold text-sm bg-gold/15 text-gold border border-gold/20 hover:bg-gold/25 transition-all"
                 >
-                  Deal Next Hand
+                  Deal Now
                 </button>
-              )}
-              {!isHost && (
-                <p className="text-sm text-gold-light/40">Waiting for host to deal...</p>
               )}
             </div>
           </motion.div>

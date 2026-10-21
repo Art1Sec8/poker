@@ -30,7 +30,10 @@ interface ChatMessage {
   timestamp: number;
 }
 
-const TURN_TIMER_SECONDS = 30;
+const TURN_TIMER_SECONDS = 45;
+// After a hand ends, wait this long (so players can see the showdown) then deal
+// the next hand automatically — no one has to click "Deal Next Hand".
+const AUTO_DEAL_DELAY_MS = 4000;
 
 export class ServerGameRoom {
   id: string;
@@ -44,6 +47,7 @@ export class ServerGameRoom {
   handNumber = 0;
   chipCounts: Map<number, number> = new Map(); // seatIndex -> chips (persisted between hands)
   private turnTimer: NodeJS.Timeout | null = null;
+  private autoDealTimer: NodeJS.Timeout | null = null;
   private io: Server;
 
   constructor(id: string, config: RoomConfig, hostSocketId: string, io: Server) {
@@ -95,9 +99,14 @@ export class ServerGameRoom {
         gamePlayer.isActive = false; // mark as folded
         // Check if hand should end
         if (isHandOver(this.gameState)) {
+          // Stop any running turn timer (it was a human's turn) so it doesn't
+          // keep emitting ghost countdown events during the showdown — matching
+          // the cleanup done in handleAction/startHand.
+          this.clearTurnTimer();
           this.gameState = resolveShowdown(this.gameState);
           this.saveChipCounts();
           this.broadcastGameState();
+          this.scheduleAutoDeal();
         }
       }
     }
@@ -122,6 +131,7 @@ export class ServerGameRoom {
     if (totalPlayers < 2) return { error: 'Need at least 2 players' };
 
     this.clearTurnTimer();
+    this.clearAutoDeal();
     this.handNumber++;
     this.dealerIndex = (this.dealerIndex + 1) % totalPlayers;
 
@@ -177,7 +187,14 @@ export class ServerGameRoom {
     this.gameState = newState;
 
     this.broadcastGameState();
-    this.startTurnTimerIfHuman();
+    // A hand can resolve immediately (e.g. everyone but one folds during AI
+    // processing) — auto-deal the next one rather than stalling.
+    if (newState.isHandComplete) {
+      this.saveChipCounts();
+      this.scheduleAutoDeal();
+    } else {
+      this.startTurnTimerIfHuman();
+    }
 
     return {};
   }
@@ -216,7 +233,11 @@ export class ServerGameRoom {
       }
 
       this.broadcastGameState();
-      this.startTurnTimerIfHuman();
+      if (newState.isHandComplete) {
+        this.scheduleAutoDeal();
+      } else {
+        this.startTurnTimerIfHuman();
+      }
 
       return {};
     } catch (e) {
@@ -316,6 +337,30 @@ export class ServerGameRoom {
     }
   }
 
+  /**
+   * Deal the next hand automatically a few seconds after one ends, so the host
+   * never has to click. Skips if the table can no longer continue (< 2 seats).
+   */
+  private scheduleAutoDeal(): void {
+    this.clearAutoDeal();
+    if (this.players.size + this.config.aiCount < 2) return;
+    this.autoDealTimer = setTimeout(() => {
+      this.autoDealTimer = null;
+      // Still complete and the room still has people? Deal. startHand() no-ops
+      // safely if too few players have chips left.
+      if (this.gameState?.isHandComplete && this.players.size > 0) {
+        this.startHand();
+      }
+    }, AUTO_DEAL_DELAY_MS);
+  }
+
+  private clearAutoDeal(): void {
+    if (this.autoDealTimer) {
+      clearTimeout(this.autoDealTimer);
+      this.autoDealTimer = null;
+    }
+  }
+
   private saveChipCounts(): void {
     if (!this.gameState) return;
     for (const p of this.gameState.players) {
@@ -339,8 +384,19 @@ export class ServerGameRoom {
     };
   }
 
+  /** Re-send current room + (sanitized) game state to one socket after it recovers. */
+  resyncPlayer(socketId: string): void {
+    const rp = this.players.get(socketId);
+    if (!rp) return;
+    this.io.to(socketId).emit('room-state', this.getRoomState());
+    if (this.gameState) {
+      this.io.to(socketId).emit('game-state', sanitizeForPlayer(this.gameState, rp.seatIndex));
+    }
+  }
+
   destroy(): void {
     this.clearTurnTimer();
+    this.clearAutoDeal();
   }
 }
 

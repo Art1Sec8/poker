@@ -287,8 +287,14 @@ export function resolveShowdown(state: GameState): GameState {
 
   if (activePlayers.length === 1) {
     // Last player standing wins everything
-    activePlayers[0].chips += newState.pot;
+    const w = activePlayers[0];
+    w.chips += newState.pot;
     newState.isHandComplete = true;
+    newState.showdownResult = {
+      winners: [{ id: w.id, name: w.name, amount: newState.pot, handDescription: null }],
+      handDescription: null,
+      wonByFold: true,
+    };
     return newState;
   }
 
@@ -297,15 +303,16 @@ export function resolveShowdown(state: GameState): GameState {
   newState.sidePots = sidePots;
 
   // Evaluate each active player's hand
-  const evaluations = new Map<number, { rank: number }>();
+  const evaluations = new Map<number, { rank: number; description: string }>();
   for (const p of activePlayers) {
     const result = newState.variant === 'plo'
       ? evaluatePloHand(p.holeCards, newState.board)
       : evaluateHand([...p.holeCards, ...newState.board]);
-    evaluations.set(p.id, { rank: result.rank });
+    evaluations.set(p.id, { rank: result.rank, description: result.description });
   }
 
-  // Award each pot to the winner(s) among eligible players
+  // Award each pot to the winner(s) among eligible players, tracking winnings.
+  const winnings = new Map<number, number>();
   let totalAwarded = 0;
   for (const pot of sidePots) {
     const eligible = pot.eligiblePlayerIds
@@ -320,8 +327,10 @@ export function resolveShowdown(state: GameState): GameState {
     const remainder = pot.amount - share * winners.length;
 
     for (let i = 0; i < winners.length; i++) {
+      const amt = share + (i === 0 ? remainder : 0);
       const player = newState.players.find(p => p.id === winners[i].id)!;
-      player.chips += share + (i === 0 ? remainder : 0);
+      player.chips += amt;
+      winnings.set(player.id, (winnings.get(player.id) ?? 0) + amt);
     }
     totalAwarded += pot.amount;
   }
@@ -331,8 +340,28 @@ export function resolveShowdown(state: GameState): GameState {
   if (unawarded > 0 && activePlayers.length > 0) {
     const bestRank = Math.min(...activePlayers.map(p => evaluations.get(p.id)?.rank ?? Infinity));
     const winner = activePlayers.find(p => evaluations.get(p.id)?.rank === bestRank);
-    if (winner) winner.chips += unawarded;
+    if (winner) {
+      winner.chips += unawarded;
+      winnings.set(winner.id, (winnings.get(winner.id) ?? 0) + unawarded);
+    }
   }
+
+  // Record the result: who won, how much, and the best winning hand shown.
+  const overallBestRank = Math.min(...activePlayers.map(p => evaluations.get(p.id)?.rank ?? Infinity));
+  const bestPlayer = activePlayers.find(p => evaluations.get(p.id)?.rank === overallBestRank);
+  newState.showdownResult = {
+    winners: [...winnings.entries()]
+      .filter(([, amt]) => amt > 0)
+      .map(([id, amount]) => ({
+        id,
+        name: newState.players.find(p => p.id === id)!.name,
+        amount,
+        // Each winner's own hand — a side-pot winner may differ from bestPlayer.
+        handDescription: evaluations.get(id)?.description ?? null,
+      })),
+    handDescription: bestPlayer ? evaluations.get(bestPlayer.id)!.description : null,
+    wonByFold: false,
+  };
 
   newState.isHandComplete = true;
   return newState;

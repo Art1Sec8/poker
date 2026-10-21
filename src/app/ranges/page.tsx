@@ -1,185 +1,189 @@
 'use client';
 
-import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Position } from '@/engine/types';
 import { useGame } from '@/context/GameContext';
 import { GameVariantToggle } from '@/components/shared/GameVariantToggle';
 import { StakesSelector } from '@/components/shared/StakesSelector';
-import { getHoldemRange, getRangeLabel, isRangeSuited, RANK_LABELS } from '@/data/ranges/holdem/ranges';
+import { RangeMatrix } from '@/components/ranges/RangeMatrix';
+import { ModeSwitcher, RangeMode } from '@/components/ranges/ModeSwitcher';
+import { HandDetailSheet } from '@/components/ranges/HandDetailSheet';
+import { LearnLessonCard } from '@/components/ranges/LearnLessonCard';
+import { DrillController } from '@/components/ranges/DrillController';
+import { getRfiRange, getRangeLabel, explainHand } from '@/data/ranges/holdem/ranges';
+import { LESSONS, RfiSeat, whyRangesMatter } from '@/data/ranges/holdem/lessons';
+import { logCoachEvent } from '@/lib/coachFeed';
 
 const POSITIONS: Position[] = ['UTG', 'MP', 'CO', 'BTN', 'SB', 'BB'];
 
 export default function RangesPage() {
-  const { variant, stakes } = useGame();
+  const { variant } = useGame();
+  const [mode, setMode] = useState<RangeMode>('explore');
   const [position, setPosition] = useState<Position>('BTN');
-  const [quizMode, setQuizMode] = useState(false);
-  const [quizHand, setQuizHand] = useState<{ row: number; col: number } | null>(null);
-  const [quizAnswer, setQuizAnswer] = useState<'correct' | 'wrong' | null>(null);
-  const [quizScore, setQuizScore] = useState({ correct: 0, total: 0 });
+  const [exploreCell, setExploreCell] = useState<{ row: number; col: number } | null>(null);
+  const [showWhy, setShowWhy] = useState(false);
 
-  const range = getHoldemRange(stakes, position);
+  // Learn state
+  const [learnStep, setLearnStep] = useState(0);
+  const [learnSeat, setLearnSeat] = useState<RfiSeat>(LESSONS[0].defaultSeat);
 
-  function startQuiz() {
-    setQuizMode(true);
-    nextQuizHand();
-  }
+  // When the lesson step changes, snap the matrix seat back to that step's default.
+  useEffect(() => {
+    setLearnSeat(LESSONS[learnStep].defaultSeat);
+  }, [learnStep]);
 
-  function nextQuizHand() {
-    const row = Math.floor(Math.random() * 13);
-    const col = Math.floor(Math.random() * 13);
-    setQuizHand({ row, col });
-    setQuizAnswer(null);
-  }
-
-  function answerQuiz(shouldPlay: boolean) {
-    if (!quizHand) return;
-    const freq = range[quizHand.row][quizHand.col];
-    const isCorrect = shouldPlay ? freq >= 0.3 : freq < 0.3;
-    setQuizAnswer(isCorrect ? 'correct' : 'wrong');
-    setQuizScore(prev => ({
-      correct: prev.correct + (isCorrect ? 1 : 0),
-      total: prev.total + 1,
-    }));
-    setTimeout(nextQuizHand, 1200);
-  }
+  const lesson = LESSONS[learnStep];
+  const exploreRange = getRfiRange(position);
+  const learnRange = getRfiRange(learnSeat);
 
   return (
     <main className="min-h-screen pb-24 pt-6">
-      <div className="max-w-lg mx-auto px-4">
+      <div className="max-w-2xl mx-auto px-4">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-gold-light" style={{ fontFamily: "'Playfair Display', serif" }}>
-            Preflop Ranges
+        <div className="flex items-center justify-between mb-1">
+          <h1
+            className="text-2xl font-bold text-gold-light"
+            style={{ fontFamily: "'Playfair Display', serif" }}
+          >
+            Range Academy
           </h1>
           <GameVariantToggle />
         </div>
-
-        <div className="mb-4">
-          <StakesSelector />
-        </div>
-
-        {/* Position tabs */}
-        <div className="flex gap-1 mb-4 overflow-x-auto">
-          {POSITIONS.map(pos => (
-            <button
-              key={pos}
-              onClick={() => setPosition(pos)}
-              className={`px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all whitespace-nowrap ${
-                position === pos
-                  ? 'bg-gold/20 text-gold border border-gold/30'
-                  : 'text-gold-light/40 hover:text-gold-light/60 border border-transparent'
-              }`}
-            >
-              {pos}
-            </button>
-          ))}
-        </div>
+        <p className="text-[10px] text-gold/50 uppercase tracking-widest font-semibold mb-4">
+          6-max · 100bb cash
+        </p>
 
         {variant === 'holdem' ? (
           <>
-            {/* Quiz mode toggle */}
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] text-gold/60 uppercase tracking-widest font-semibold">
-                {quizMode ? `Quiz: ${quizScore.correct}/${quizScore.total}` : 'Range Grid'}
-              </span>
-              <button
-                onClick={() => quizMode ? setQuizMode(false) : startQuiz()}
-                className="text-[10px] text-gold/60 uppercase tracking-widest font-semibold hover:text-gold transition-colors"
-              >
-                {quizMode ? 'Exit Quiz' : 'Quiz Mode'}
-              </button>
+            {/* Mode switcher */}
+            <div className="mb-4">
+              <ModeSwitcher mode={mode} onChange={setMode} />
             </div>
 
-            {/* Quiz overlay */}
-            {quizMode && quizHand && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="glass rounded-xl p-5 mb-4 text-center"
-              >
-                <p className="text-gold-light/50 text-xs mb-2">Should you open from {position}?</p>
-                <p className="text-3xl font-bold text-gold mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>
-                  {getRangeLabel(quizHand.row, quizHand.col)}
-                </p>
-                {quizAnswer ? (
-                  <motion.p
-                    initial={{ scale: 0.8 }}
-                    animate={{ scale: 1 }}
-                    className={`text-lg font-bold ${quizAnswer === 'correct' ? 'text-emerald-400' : 'text-crimson'}`}
-                  >
-                    {quizAnswer === 'correct' ? 'Correct!' : 'Wrong!'}
-                    <span className="text-sm text-gold-light/40 ml-2">
-                      ({(range[quizHand.row][quizHand.col] * 100).toFixed(0)}% freq)
-                    </span>
-                  </motion.p>
-                ) : (
-                  <div className="flex gap-3 justify-center">
+            {/* Cosmetic stakes (no-op for MVP) + position tabs, hidden in Learn */}
+            {mode !== 'learn' && (
+              <>
+                <div className="mb-3">
+                  <StakesSelector />
+                </div>
+                <div className="flex gap-1 mb-4 overflow-x-auto">
+                  {POSITIONS.map((pos) => (
                     <button
-                      onClick={() => answerQuiz(true)}
-                      className="px-6 py-2 rounded-xl bg-emerald-600/80 text-white font-bold text-sm hover:bg-emerald-500 transition-colors"
+                      key={pos}
+                      onClick={() => {
+                        setPosition(pos);
+                        logCoachEvent({ kind: 'position', mode, position: pos });
+                      }}
+                      className={`px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all whitespace-nowrap ${
+                        position === pos
+                          ? 'bg-gold/20 text-gold border border-gold/30'
+                          : 'text-gold-light/40 hover:text-gold-light/60 border border-transparent'
+                      }`}
                     >
-                      Open
+                      {pos}
                     </button>
-                    <button
-                      onClick={() => answerQuiz(false)}
-                      className="px-6 py-2 rounded-xl bg-crimson/80 text-white font-bold text-sm hover:bg-crimson transition-colors"
-                    >
-                      Fold
-                    </button>
-                  </div>
-                )}
-              </motion.div>
+                  ))}
+                </div>
+              </>
             )}
 
-            {/* 13x13 Range Grid */}
-            <div className="glass rounded-xl p-2 overflow-x-auto">
-              <div className="grid gap-0.5" style={{ gridTemplateColumns: 'repeat(13, 1fr)', minWidth: 340 }}>
-                {Array.from({ length: 13 }, (_, row) =>
-                  Array.from({ length: 13 }, (_, col) => {
-                    const freq = range[row][col];
-                    const type = isRangeSuited(row, col);
-                    const label = getRangeLabel(row, col);
-                    const isQuizTarget = quizMode && quizHand?.row === row && quizHand?.col === col;
-
-                    return (
-                      <motion.div
-                        key={`${row}-${col}`}
-                        whileHover={{ scale: 1.1 }}
-                        className={`aspect-square flex items-center justify-center rounded text-[7px] font-bold cursor-default transition-all ${
-                          isQuizTarget ? 'ring-2 ring-gold' : ''
-                        }`}
-                        style={{
-                          backgroundColor: freq > 0
-                            ? `rgba(${freq > 0.7 ? '34,197,94' : freq > 0.3 ? '234,179,8' : '239,68,68'}, ${0.15 + freq * 0.5})`
-                            : 'rgba(255,255,255,0.03)',
-                          color: freq > 0 ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.2)',
-                        }}
-                        title={`${label}: ${(freq * 100).toFixed(0)}%`}
-                      >
-                        {label}
-                      </motion.div>
-                    );
-                  })
+            {/* Why ranges matter — collapsible intro */}
+            <div className="glass rounded-xl mb-4 overflow-hidden">
+              <button
+                onClick={() => setShowWhy((v) => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 text-left"
+              >
+                <span className="text-xs font-bold text-gold uppercase tracking-widest">
+                  Why ranges matter
+                </span>
+                <span className="text-gold/60 text-sm">{showWhy ? '−' : '+'}</span>
+              </button>
+              <AnimatePresence>
+                {showWhy && (
+                  <motion.ul
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="px-4 pb-4 space-y-2"
+                  >
+                    {whyRangesMatter.map((b, i) => (
+                      <li key={i} className="text-[12px] text-gold-light/65 leading-relaxed flex gap-2">
+                        <span className="text-gold/50">•</span>
+                        <span>{b}</span>
+                      </li>
+                    ))}
+                  </motion.ul>
                 )}
-              </div>
+              </AnimatePresence>
             </div>
 
-            {/* Legend */}
-            <div className="flex gap-4 mt-3 justify-center text-[10px] text-gold-light/40">
-              <span className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded bg-emerald-500/50" /> Always
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded bg-yellow-500/50" /> Sometimes
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded bg-red-500/50" /> Rarely
-              </span>
-            </div>
+            {/* EXPLORE */}
+            {mode === 'explore' && (
+              <>
+                {position === 'BB' && (
+                  <p className="text-[11px] text-steel/90 mb-3 text-center">
+                    The big blind has no opening (raise-first-in) range — it only defends. Tap a
+                    hand to see why, then check the &quot;Facing a raise&quot; quiz.
+                  </p>
+                )}
+                <RangeMatrix
+                  range={exploreRange}
+                  mode="explore"
+                  onCellTap={(row, col) => {
+                    setExploreCell({ row, col });
+                    const freq = exploreRange[row][col];
+                    const info = explainHand(row, col, position, freq);
+                    logCoachEvent({
+                      kind: 'explore',
+                      position,
+                      hand: getRangeLabel(row, col),
+                      freqPct: Math.round(freq * 100),
+                      verdict: info.verdict,
+                      lever: info.lever,
+                    });
+                  }}
+                />
+                <Legend />
+                <p className="text-center text-[11px] text-gold-light/40 mt-3">
+                  Tap any hand for the verdict and the &quot;why&quot;.
+                </p>
+                <HandDetailSheet
+                  cell={exploreCell}
+                  position={position}
+                  onClose={() => setExploreCell(null)}
+                />
+              </>
+            )}
+
+            {/* LEARN */}
+            {mode === 'learn' && (
+              <div className="space-y-4">
+                <RangeMatrix
+                  range={learnRange}
+                  mode="learn"
+                  highlightRegion={lesson.highlight}
+                />
+                <LearnLessonCard
+                  step={lesson}
+                  index={learnStep}
+                  total={LESSONS.length}
+                  currentSeat={learnSeat}
+                  onSeatChange={setLearnSeat}
+                  onPrev={() => setLearnStep((s) => Math.max(0, s - 1))}
+                  onNext={() => {
+                    if (learnStep === LESSONS.length - 1) setMode('drill');
+                    else setLearnStep((s) => Math.min(LESSONS.length - 1, s + 1));
+                  }}
+                />
+              </div>
+            )}
+
+            {/* DRILL */}
+            {mode === 'drill' && <DrillController key={position} position={position} />}
           </>
         ) : (
-          /* PLO Categories */
+          /* PLO Categories — unchanged */
           <div className="space-y-3">
             {PLO_CATEGORIES.map((cat, i) => (
               <motion.div
@@ -195,9 +199,15 @@ export default function RangesPage() {
                     <p className="text-[10px] text-gold-light/40 mt-0.5">{cat.description}</p>
                     <p className="text-[10px] text-gold/50 mt-1">e.g. {cat.examples.join(', ')}</p>
                   </div>
-                  <span className={`text-sm font-bold ${
-                    cat.frequency > 0.7 ? 'text-emerald-400' : cat.frequency > 0.3 ? 'text-yellow-400' : 'text-red-400'
-                  }`}>
+                  <span
+                    className={`text-sm font-bold ${
+                      cat.frequency > 0.7
+                        ? 'text-emerald-400'
+                        : cat.frequency > 0.3
+                        ? 'text-yellow-400'
+                        : 'text-red-400'
+                    }`}
+                  >
                     {(cat.frequency * 100).toFixed(0)}%
                   </span>
                 </div>
@@ -207,6 +217,22 @@ export default function RangesPage() {
         )}
       </div>
     </main>
+  );
+}
+
+function Legend() {
+  return (
+    <div className="flex gap-4 mt-3 justify-center text-[10px] text-gold-light/40">
+      <span className="flex items-center gap-1">
+        <span className="w-3 h-3 rounded bg-emerald-500/50" /> Open
+      </span>
+      <span className="flex items-center gap-1">
+        <span className="w-3 h-3 rounded bg-yellow-500/50" /> Mixed
+      </span>
+      <span className="flex items-center gap-1">
+        <span className="w-3 h-3 rounded bg-red-500/50" /> Fold
+      </span>
+    </div>
   );
 }
 

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGame } from '@/context/GameContext';
+import { useUI } from '@/context/UIContext';
 import { useGameState } from '@/hooks/useGameState';
 import { useCoach } from '@/hooks/useCoach';
 import { GameVariantToggle } from '@/components/shared/GameVariantToggle';
@@ -10,16 +11,24 @@ import { StakesSelector } from '@/components/shared/StakesSelector';
 import { PokerTable } from '@/components/play/PokerTable';
 import { BettingControls } from '@/components/play/BettingControls';
 import { SessionStats } from '@/components/play/SessionStats';
-import { CoachPanel } from '@/components/play/CoachPanel';
+import { CoachPanel, CoachHandReview } from '@/components/play/CoachPanel';
 import { ActionType } from '@/engine/types';
 
 type AIDifficulty = 'fish' | 'regular' | 'shark' | 'random';
 
 export default function PlayPage() {
   const { variant } = useGame();
+  const { setImmersive } = useUI();
   const game = useGameState();
   const coach = useCoach();
   const [isSetup, setIsSetup] = useState(true);
+
+  // Hide the bottom nav while seated at the table; restore it on the setup
+  // screen and when leaving the page.
+  useEffect(() => {
+    setImmersive(!isSetup);
+    return () => setImmersive(false);
+  }, [isSetup, setImmersive]);
   const [numAI, setNumAI] = useState(2);
   const [aiDifficulty, setAIDifficulty] = useState<AIDifficulty>('regular');
   const [blinds, setBlinds] = useState({ small: 5, big: 10 });
@@ -214,7 +223,7 @@ export default function PlayPage() {
   }
 
   return (
-    <main className="min-h-screen pb-4 pt-2 flex flex-col">
+    <main className="min-h-screen pt-2 flex flex-col pb-[max(0.5rem,env(safe-area-inset-bottom))]">
       {/* Stats overlay */}
       <SessionStats stats={game.sessionStats} isOpen={showStats} onToggle={() => setShowStats(!showStats)} />
 
@@ -224,12 +233,11 @@ export default function PlayPage() {
         onToggle={coach.toggleCoach}
         analysis={coach.analysis}
         isLoading={coach.isLoading}
-        handReview={coach.handReview}
         showReview={game.state.isHandComplete}
       />
 
       {/* Hand number */}
-      <div className="text-center text-[10px] text-gold/40 uppercase tracking-widest font-semibold mb-1">
+      <div className="text-center text-xs text-gold/50 uppercase tracking-widest font-semibold mb-1">
         Hand #{game.state.handNumber}
       </div>
 
@@ -243,10 +251,15 @@ export default function PlayPage() {
       </div>
 
       {/* Coach hand review (shown between hand complete overlay and controls) */}
+      <CoachHandReview
+        enabled={coach.coachEnabled}
+        handReview={coach.handReview}
+        showReview={game.state.isHandComplete}
+      />
 
-      {/* Hand complete overlay */}
+      {/* Game over overlay */}
       <AnimatePresence>
-        {game.state.isHandComplete && (
+        {game.isGameOver && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -255,23 +268,68 @@ export default function PlayPage() {
           >
             <div className="glass rounded-xl p-4 text-center">
               <p className="text-gold font-bold text-lg mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
-                Hand Complete
+                {(game.state!.players.find(p => p.isHuman)?.chips ?? 0) > 0 ? '🏆 You Win!' : 'Game Over'}
               </p>
               <p className="text-sm text-gold-light/50 mb-3">
+                {(game.state!.players.find(p => p.isHuman)?.chips ?? 0) > 0
+                  ? 'You busted every opponent.'
+                  : 'You are out of chips.'}
+              </p>
+              <button
+                onClick={() => setIsSetup(true)}
+                className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-gold-dark to-gold text-background hover:shadow-lg hover:shadow-gold/20 transition-all"
+              >
+                New Game
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Hand complete overlay */}
+      <AnimatePresence>
+        {game.state.isHandComplete && !game.isGameOver && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="px-4 mb-2"
+          >
+            <div className="glass rounded-xl p-4 text-center">
+              <p className="text-gold font-bold text-lg mb-1" style={{ fontFamily: "'Playfair Display', serif" }}>
+                Hand Complete
+              </p>
+              {game.state.showdownResult && (
+                <p className="text-base font-semibold text-gold-light/90 mb-1">
+                  {(() => {
+                    const r = game.state!.showdownResult!;
+                    const names = r.winners.map(w => (w.id === 0 ? 'You' : w.name));
+                    const who = names.join(' & ');
+                    const verb = names.length > 1 ? 'split' : names[0] === 'You' ? 'win' : 'wins';
+                    if (r.wonByFold) return `${who} ${verb} — everyone else folded`;
+                    // If winners hold different hands (main pot vs side pot), label
+                    // each with their own hand instead of one shared description.
+                    const distinct = new Set(r.winners.map(w => w.handDescription));
+                    if (r.winners.length > 1 && distinct.size > 1) {
+                      return r.winners
+                        .map(w => `${w.id === 0 ? 'You' : w.name} ${w.id === 0 ? 'win' : 'wins'} with ${w.handDescription}`)
+                        .join('; ');
+                    }
+                    return `${who} ${verb} with ${r.handDescription}`;
+                  })()}
+                </p>
+              )}
+              <p className="text-sm text-gold-light/50 mb-3">
                 {(() => {
-                  const human = game.state!.players.find(p => p.isHuman);
-                  const prevChips = game.handHistory.length > 1
-                    ? game.handHistory[game.handHistory.length - 2]?.players.find(p => p.isHuman)?.chips
-                    : buyIn;
-                  const diff = human && prevChips !== undefined ? human.chips - prevChips : 0;
-                  if (diff > 0) return `You won $${diff}!`;
+                  const diff = game.handResult ?? 0;
+                  if (diff > 0) return `You won $${diff}`;
                   if (diff < 0) return `You lost $${Math.abs(diff)}`;
-                  return 'Push';
+                  return 'You broke even';
                 })()}
               </p>
               <button
                 onClick={() => game.startNewHand()}
-                className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-gold-dark to-gold text-background hover:shadow-lg hover:shadow-gold/20 transition-all"
+                className="w-full py-3 rounded-xl font-bold text-base bg-gradient-to-r from-gold-dark to-gold text-background hover:shadow-lg hover:shadow-gold/20 transition-all"
               >
                 Deal Next Hand
               </button>

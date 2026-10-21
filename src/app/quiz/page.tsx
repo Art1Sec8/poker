@@ -129,17 +129,27 @@ export default function QuizPage() {
             <span>Pot: <span className="text-gold font-bold">${currentScenario.pot}</span></span>
           </div>
 
-          {/* Hole cards */}
-          <div className="flex justify-center mb-4">
-            <CardGroup cards={holeCards} size="lg" overlap={false} />
-          </div>
-
-          {/* Board */}
+          {/* Board (community cards) — on top, like a real table */}
           {boardCards.length > 0 && (
-            <div className="flex justify-center mb-4">
-              <CardGroup cards={boardCards} size="md" overlap={false} />
+            <div className="mb-4">
+              <p className="text-center text-[9px] text-gold/40 uppercase tracking-widest font-semibold mb-1.5">
+                Board
+              </p>
+              <div className="flex justify-center">
+                <CardGroup cards={boardCards} size="md" overlap={false} />
+              </div>
             </div>
           )}
+
+          {/* Your hole cards — at the bottom, in front of you */}
+          <div className="mb-4">
+            <p className="text-center text-[9px] text-gold/40 uppercase tracking-widest font-semibold mb-1.5">
+              Your hand
+            </p>
+            <div className="flex justify-center">
+              <CardGroup cards={holeCards} size="lg" overlap={false} />
+            </div>
+          </div>
 
           {/* Action prompt */}
           {currentScenario.toCall > 0 && (

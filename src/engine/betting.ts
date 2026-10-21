@@ -167,6 +167,15 @@ export function applyAction(state: GameState, action: ActionRecord): GameState {
       player.currentBet += amount;
       player.totalBetThisHand += amount;
       newState.pot += amount;
+      // If this all-in constitutes a full raise, update minRaise so the next
+      // player's minimum legal raise is computed correctly (matches bet/raise).
+      const raiseSize = player.currentBet - Math.max(
+        ...state.players.filter(p => p.isActive && p.id !== player.id).map(p => p.currentBet),
+        0
+      );
+      if (raiseSize > newState.minRaise) {
+        newState.minRaise = raiseSize;
+      }
       break;
     }
   }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActionRecord, ActionType, GameState, GameVariant, PlayerState,
 } from '@/engine/types';
@@ -40,6 +40,10 @@ export interface UseGameStateReturn {
   sessionStats: SessionStats;
   timerSeconds: number;
   isTimerRunning: boolean;
+  /** Net chip change for the human in the most recently completed hand. */
+  handResult: number | null;
+  /** True when the game is over (human busted or only one player has chips). */
+  isGameOver: boolean;
 }
 
 const TIMER_SECONDS = 30;
@@ -49,6 +53,8 @@ export function useGameState(): UseGameStateReturn {
   const [handHistory, setHandHistory] = useState<GameState[]>([]);
   const [timerSeconds, setTimerSeconds] = useState(TIMER_SECONDS);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [handResult, setHandResult] = useState<number | null>(null);
+  const [isGameOver, setIsGameOver] = useState(false);
   const [sessionStats, setSessionStats] = useState<SessionStats>({
     handsPlayed: 0, handsWon: 0, vpip: 0, pfr: 0,
     aggressionFactor: 0, consecutiveMistakes: 0,
@@ -60,43 +66,58 @@ export function useGameState(): UseGameStateReturn {
   const dealerIndexRef = useRef(0);
   const handNumberRef = useRef(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  // Mirror of the countdown so the interval can decide when to auto-act without
+  // running logic inside a setState updater (which would nest state updates).
+  const secondsRef = useRef(TIMER_SECONDS);
+  // Mirror of the latest state for use inside async callbacks (timer) and
+  // stable callbacks, avoiding stale closures.
+  const stateRef = useRef<GameState | null>(null);
+  // Human chip count snapshot taken at the start of the current hand. Used to
+  // compute the per-hand result regardless of where the hand completes.
+  const handStartChipsRef = useRef(0);
+  // Per-hand flags so VPIP/PFR are counted at most once per hand.
+  const vpipThisHandRef = useRef(false);
+  const pfrThisHandRef = useRef(false);
+  // Always points at the latest performAction so the timer can route an
+  // auto-action through the exact same pipeline as a manual one.
+  const performActionRef = useRef<(type: ActionType, amount?: number) => void>(() => {});
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = null;
+    secondsRef.current = TIMER_SECONDS;
     setIsTimerRunning(false);
     setTimerSeconds(TIMER_SECONDS);
   }, []);
 
   const startTimer = useCallback(() => {
     clearTimer();
+    secondsRef.current = TIMER_SECONDS;
     setTimerSeconds(TIMER_SECONDS);
     setIsTimerRunning(true);
     timerRef.current = setInterval(() => {
-      setTimerSeconds(prev => {
-        if (prev <= 1) {
-          clearTimer();
-          // Auto-fold on timeout
-          setState(currentState => {
-            if (!currentState || currentState.isHandComplete) return currentState;
-            const player = currentState.players[currentState.currentPlayerIndex];
-            if (!player.isHuman) return currentState;
-            const action: ActionRecord = {
-              playerId: player.id, type: 'fold', amount: 0,
-              street: currentState.street, timestamp: Date.now(),
-            };
-            try {
-              return applyAction(currentState, action);
-            } catch {
-              // If fold is invalid (e.g., no bet to face), check instead
-              const checkAction: ActionRecord = { ...action, type: 'check' };
-              try { return applyAction(currentState, checkAction); } catch { return currentState; }
-            }
-          });
-          return 0;
+      const next = secondsRef.current - 1;
+      secondsRef.current = next > 0 ? next : 0;
+      setTimerSeconds(secondsRef.current);
+      if (next > 0) return;
+
+      // Countdown reached zero. Stop the timer, then auto-act OUTSIDE of any
+      // setState updater so the action's own state updates (advance turn, run
+      // AI, finish/record the hand, restart timer) don't nest. Fold if facing a
+      // bet, otherwise check.
+      clearTimer();
+      const current = stateRef.current;
+      if (current && !current.isHandComplete) {
+        const player = current.players[current.currentPlayerIndex];
+        if (player?.isHuman) {
+          const acts = getValidActions(current);
+          if (acts.some(a => a.type === 'fold')) {
+            performActionRef.current('fold');
+          } else if (acts.some(a => a.type === 'check')) {
+            performActionRef.current('check');
+          }
         }
-        return prev - 1;
-      });
+      }
     }, 1000);
   }, [clearTimer]);
 
@@ -149,11 +170,44 @@ export function useGameState(): UseGameStateReturn {
     return current;
   }, []);
 
+  // Record a completed hand exactly once: push to history and compute the
+  // human's net result from the chip snapshot taken at the start of the hand.
+  const finishHand = useCallback((completed: GameState) => {
+    setHandHistory(prev => [...prev, completed]);
+    const human = completed.players.find(p => p.isHuman);
+    const delta = (human?.chips ?? 0) - handStartChipsRef.current;
+    setHandResult(delta);
+    if (delta > 0) {
+      setSessionStats(prev => ({ ...prev, handsWon: prev.handsWon + 1, consecutiveMistakes: 0 }));
+    }
+  }, []);
+
+  // Shared post-action pipeline: advance the turn, run AI turns, then either
+  // record the completed hand or (re)start the human timer. Used by both
+  // performAction and the timeout auto-action.
+  const commitState = useCallback((applied: GameState) => {
+    let newState = { ...applied, currentPlayerIndex: getNextPlayerIndex(applied) };
+    newState = processAITurns(newState);
+    stateRef.current = newState;
+    setState(newState);
+
+    if (newState.isHandComplete) {
+      finishHand(newState);
+    } else {
+      const currentPlayer = newState.players[newState.currentPlayerIndex];
+      if (currentPlayer.isHuman) startTimer();
+    }
+  }, [processAITurns, startTimer, finishHand]);
+
   const startGame = useCallback((config: GameConfig) => {
     configRef.current = config;
     aiPlayersRef.current.clear();
     dealerIndexRef.current = 0;
     handNumberRef.current = 0;
+    stateRef.current = null;
+    setState(null);
+    setHandResult(null);
+    setIsGameOver(false);
 
     // Create AI players
     config.aiSeats.forEach((seat, i) => {
@@ -174,8 +228,7 @@ export function useGameState(): UseGameStateReturn {
     if (!config) return;
 
     clearTimer();
-    handNumberRef.current++;
-    dealerIndexRef.current = (dealerIndexRef.current + 1) % (1 + config.aiSeats.length);
+    setHandResult(null);
 
     const players: Omit<PlayerState, 'holeCards' | 'currentBet' | 'totalBetThisHand' | 'isActive' | 'position'>[] = [
       { id: 0, name: 'You', chips: config.buyIn, isHuman: true, isSittingOut: false },
@@ -190,55 +243,90 @@ export function useGameState(): UseGameStateReturn {
     ];
 
     // Preserve chip counts from previous hand
-    if (state) {
+    if (stateRef.current) {
+      const prevState = stateRef.current;
       players.forEach(p => {
-        const prev = state.players.find(sp => sp.id === p.id);
+        const prev = prevState.players.find(sp => sp.id === p.id);
         if (prev) p.chips = prev.chips;
       });
     }
 
+    // Eliminate busted players (0 chips) — they are not dealt in, do not post
+    // blinds, and do not occupy a seat for position/blind math.
+    const survivors = players.filter(p => p.chips > 0);
+    const humanChips = players.find(p => p.isHuman)?.chips ?? 0;
+
+    // Game over: the human busted, or only one player still has chips.
+    if (humanChips === 0 || survivors.length <= 1) {
+      clearTimer();
+      setIsGameOver(true);
+      return;
+    }
+
+    handNumberRef.current++;
+    // Rotate the dealer button among the remaining (re-indexed) seats.
+    dealerIndexRef.current = (dealerIndexRef.current + 1) % survivors.length;
+
+    // Snapshot human chips before blinds so the per-hand result is accurate
+    // wherever the hand completes.
+    handStartChipsRef.current = humanChips;
+    vpipThisHandRef.current = false;
+    pfrThisHandRef.current = false;
+
     let newState = createNewHand(
-      players, config.variant, config.smallBlind, config.bigBlind,
+      survivors, config.variant, config.smallBlind, config.bigBlind,
       dealerIndexRef.current, handNumberRef.current,
     );
 
     // Process AI turns until it's human's turn
     newState = processAITurns(newState);
+    stateRef.current = newState;
     setState(newState);
 
-    if (!newState.isHandComplete) {
+    setSessionStats(prev => ({ ...prev, handsPlayed: prev.handsPlayed + 1 }));
+
+    // A hand can complete before the human ever acts (e.g. opponent folds
+    // preflop) — record it here so history/result/handsWon stay in sync.
+    if (newState.isHandComplete) {
+      finishHand(newState);
+    } else {
       const currentPlayer = newState.players[newState.currentPlayerIndex];
       if (currentPlayer.isHuman) startTimer();
     }
-
-    setSessionStats(prev => ({ ...prev, handsPlayed: prev.handsPlayed + 1 }));
-  }, [state, processAITurns, startTimer, clearTimer]);
+  }, [processAITurns, startTimer, clearTimer, finishHand]);
 
   const performAction = useCallback((type: ActionType, amount: number = 0) => {
-    if (!state || state.isHandComplete) return;
-    const player = state.players[state.currentPlayerIndex];
+    const current = stateRef.current;
+    if (!current || current.isHandComplete) return;
+    const player = current.players[current.currentPlayerIndex];
     if (!player.isHuman) return;
 
     clearTimer();
 
     const action: ActionRecord = {
-      playerId: player.id, type, amount, street: state.street, timestamp: Date.now(),
+      playerId: player.id, type, amount, street: current.street, timestamp: Date.now(),
     };
 
     try {
-      let newState = applyAction(state, action);
+      const applied = applyAction(current, action);
 
-      // Update stats
+      // Update stats. VPIP/PFR are counted at most once per hand.
       setSessionStats(prev => {
         const updated = { ...prev };
         if (type === 'bet' || type === 'raise') { updated.totalBets++; updated.totalRaises++; }
         if (type === 'call') updated.totalCalls++;
         if (type === 'fold') updated.totalFolds++;
-        if (state.street === 'preflop' && (type === 'call' || type === 'bet' || type === 'raise' || type === 'allin')) {
+        if (current.street === 'preflop'
+          && !vpipThisHandRef.current
+          && (type === 'call' || type === 'bet' || type === 'raise' || type === 'allin')) {
           updated.vpip++;
+          vpipThisHandRef.current = true;
         }
-        if (state.street === 'preflop' && (type === 'raise' || type === 'bet')) {
+        if (current.street === 'preflop'
+          && !pfrThisHandRef.current
+          && (type === 'raise' || type === 'bet')) {
           updated.pfr++;
+          pfrThisHandRef.current = true;
         }
         updated.aggressionFactor = updated.totalCalls > 0
           ? (updated.totalBets + updated.totalRaises) / updated.totalCalls
@@ -246,29 +334,18 @@ export function useGameState(): UseGameStateReturn {
         return updated;
       });
 
-      // Advance to next player
-      newState = { ...newState, currentPlayerIndex: getNextPlayerIndex(newState) };
-
-      // Process AI turns
-      newState = processAITurns(newState);
-
-      setState(newState);
-
-      // If hand complete, save to history
-      if (newState.isHandComplete) {
-        setHandHistory(prev => [...prev, newState]);
-        const humanPlayer = newState.players.find(p => p.isHuman);
-        if (humanPlayer && humanPlayer.chips > (state.players.find(p => p.isHuman)?.chips ?? 0)) {
-          setSessionStats(prev => ({ ...prev, handsWon: prev.handsWon + 1, consecutiveMistakes: 0 }));
-        }
-      } else {
-        const currentPlayer = newState.players[newState.currentPlayerIndex];
-        if (currentPlayer.isHuman) startTimer();
-      }
+      // Advance the turn, run AI, and complete/record the hand via the shared
+      // pipeline (also used by the timeout auto-action).
+      commitState(applied);
     } catch (e) {
       console.error('Action failed:', e);
     }
-  }, [state, processAITurns, startTimer, clearTimer]);
+  }, [clearTimer, commitState]);
+
+  // Keep the ref pointing at the latest performAction for the timer to use.
+  useEffect(() => {
+    performActionRef.current = performAction;
+  }, [performAction]);
 
   const isPlayerTurn = state !== null && !state.isHandComplete &&
     state.players[state.currentPlayerIndex]?.isHuman === true;
@@ -278,6 +355,6 @@ export function useGameState(): UseGameStateReturn {
   return {
     state, isPlayerTurn, validActions, performAction,
     startNewHand, startGame, handHistory, sessionStats,
-    timerSeconds, isTimerRunning,
+    timerSeconds, isTimerRunning, handResult, isGameOver,
   };
 }

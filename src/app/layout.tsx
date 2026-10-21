@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Providers } from "./providers";
+import { BottomNav } from "@/components/BottomNav";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -35,32 +36,5 @@ export default function RootLayout({
         </Providers>
       </body>
     </html>
-  );
-}
-
-function BottomNav() {
-  return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-gold/10 safe-area-bottom">
-      <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-4">
-        <NavItem href="/" icon="🏠" label="Home" />
-        <NavItem href="/quiz" icon="🎯" label="Quiz" />
-        <NavItem href="/ranges" icon="📊" label="Ranges" />
-        <NavItem href="/play" icon="🃏" label="Play" />
-        <NavItem href="/multiplayer" icon="👥" label="Multi" />
-        <NavItem href="/history" icon="📜" label="History" />
-      </div>
-    </nav>
-  );
-}
-
-function NavItem({ href, icon, label }: { href: string; icon: string; label: string }) {
-  return (
-    <a
-      href={href}
-      className="flex flex-col items-center gap-0.5 text-gold-light/60 hover:text-gold transition-colors"
-    >
-      <span className="text-xl">{icon}</span>
-      <span className="text-[10px] font-medium tracking-wide uppercase">{label}</span>
-    </a>
   );
 }

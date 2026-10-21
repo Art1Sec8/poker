@@ -54,13 +54,13 @@ export default function Home() {
   const demoCards = parseCards('AhKh');
 
   return (
-    <main className="min-h-screen pb-20">
+    <main className="min-h-screen pb-28">
       {/* Hero section */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-midnight via-background to-background" />
         <div className="absolute inset-0 vignette" />
 
-        <div className="relative max-w-lg mx-auto px-6 pt-16 pb-12 text-center">
+        <div className="relative max-w-lg mx-auto px-6 pt-10 pb-8 text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -79,7 +79,7 @@ export default function Home() {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.3 }}
-            className="flex justify-center mt-8"
+            className="flex justify-center mt-5"
           >
             <CardGroup cards={demoCards} size="lg" overlap={true} />
           </motion.div>

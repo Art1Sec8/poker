@@ -8,6 +8,12 @@ interface PokerTableProps {
   state: GameState;
   timerSeconds: number;
   isTimerRunning: boolean;
+  /**
+   * The local player's seat id. The player with this id is drawn at the bottom
+   * ("hero"); everyone else is an opponent around the top. Omit for single
+   * player, where the (only) human is the hero.
+   */
+  heroId?: number;
 }
 
 function getLastAction(state: GameState, playerId: number): ActionRecord | undefined {
@@ -31,9 +37,18 @@ function actionLabelStyle(type: string): string {
   }
 }
 
-export function PokerTable({ state, timerSeconds, isTimerRunning }: PokerTableProps) {
-  const humanPlayer = state.players.find(p => p.isHuman);
-  const opponents = state.players.filter(p => !p.isHuman);
+export function PokerTable({ state, timerSeconds, isTimerRunning, heroId }: PokerTableProps) {
+  // The hero is the local player. In multiplayer every player is human, so we
+  // must pick the hero by seat id; single player falls back to the lone human.
+  const hero = heroId !== undefined
+    ? state.players.find(p => p.id === heroId)
+    : state.players.find(p => p.isHuman);
+  // A hero who busted out (chips === 0) is filtered from gameState.players on
+  // subsequent hands. They're still seated in the room, so show a spectating
+  // indicator rather than silently dropping their seat.
+  const heroBustedSpectating = heroId !== undefined && !hero;
+  const opponents = state.players.filter(p => p !== hero);
+  const cardCount = state.variant === 'plo' ? 4 : 2;
 
   return (
     <div className="relative w-full max-w-lg mx-auto aspect-[4/3]">
@@ -64,11 +79,14 @@ export function PokerTable({ state, timerSeconds, isTimerRunning }: PokerTablePr
         )}
       </div>
 
-      {/* Opponent seats */}
+      {/* Opponent seats — spread across the top arc (a lone opponent sits dead
+          center, like a real heads-up table) */}
       {opponents.map((opp, i) => {
-        const angle = Math.PI * (0.2 + (0.6 * i) / Math.max(opponents.length - 1, 1));
-        const x = 50 + 40 * Math.cos(angle);
-        const y = 10 + 20 * Math.sin(angle);
+        const n = opponents.length;
+        const t = n === 1 ? 0.5 : i / (n - 1);
+        const x = 14 + 72 * t;                       // 14%..86% left-to-right
+        const y = 18 - Math.sin(Math.PI * t) * 9;    // gentle arc, center highest
+        const idx = state.players.indexOf(opp);
 
         return (
           <div
@@ -78,30 +96,42 @@ export function PokerTable({ state, timerSeconds, isTimerRunning }: PokerTablePr
           >
             <PlayerSeat
               player={opp}
-              isActive={state.currentPlayerIndex === state.players.indexOf(opp)}
+              isActive={state.currentPlayerIndex === idx}
               showCards={state.isHandComplete}
-              isDealer={state.dealerIndex === state.players.indexOf(opp)}
+              isDealer={state.dealerIndex === idx}
+              cardCount={cardCount}
               timerSeconds={timerSeconds}
-              isTimerRunning={isTimerRunning && state.currentPlayerIndex === state.players.indexOf(opp)}
+              isTimerRunning={isTimerRunning && state.currentPlayerIndex === idx}
               lastAction={getLastAction(state, opp.id)}
             />
           </div>
         );
       })}
 
-      {/* Human player seat (bottom center) */}
-      {humanPlayer && (
+      {/* Hero seat (local player, bottom center) */}
+      {hero && (
         <div className="absolute bottom-[-2%] left-1/2 -translate-x-1/2 z-10">
           <PlayerSeat
-            player={humanPlayer}
-            isActive={state.currentPlayerIndex === state.players.indexOf(humanPlayer)}
+            player={hero}
+            isActive={state.currentPlayerIndex === state.players.indexOf(hero)}
             showCards={true}
             isHero
-            isDealer={state.dealerIndex === state.players.indexOf(humanPlayer)}
+            isDealer={state.dealerIndex === state.players.indexOf(hero)}
+            cardCount={cardCount}
             timerSeconds={timerSeconds}
-            isTimerRunning={isTimerRunning && state.currentPlayerIndex === state.players.indexOf(humanPlayer)}
-            lastAction={getLastAction(state, humanPlayer.id)}
+            isTimerRunning={isTimerRunning && state.currentPlayerIndex === state.players.indexOf(hero)}
+            lastAction={getLastAction(state, hero.id)}
           />
+        </div>
+      )}
+
+      {/* Busted hero — no active seat this hand, show spectating state */}
+      {heroBustedSpectating && (
+        <div className="absolute bottom-[-2%] left-1/2 -translate-x-1/2 z-10">
+          <div className="glass rounded-lg px-4 py-2 text-center">
+            <p className="text-sm font-bold text-gold-light/80">Busted</p>
+            <p className="text-[10px] text-gold-light/40 uppercase tracking-widest">Spectating</p>
+          </div>
         </div>
       )}
 
@@ -110,13 +140,14 @@ export function PokerTable({ state, timerSeconds, isTimerRunning }: PokerTablePr
 }
 
 function PlayerSeat({
-  player, isActive, showCards, isHero = false, isDealer = false, timerSeconds, isTimerRunning, lastAction,
+  player, isActive, showCards, isHero = false, isDealer = false, cardCount = 2, timerSeconds, isTimerRunning, lastAction,
 }: {
   player: PlayerState;
   isActive: boolean;
   showCards: boolean;
   isHero?: boolean;
   isDealer?: boolean;
+  cardCount?: number;
   timerSeconds: number;
   isTimerRunning: boolean;
   lastAction?: ActionRecord;
@@ -162,27 +193,29 @@ function PlayerSeat({
 
       {/* Name + chips */}
       <div className="text-center">
-        <div className="text-[9px] font-semibold text-gold-light/80 truncate max-w-[70px]">{player.name}</div>
-        <div className="text-[10px] font-bold text-gold">${player.chips}</div>
+        <div className="text-[11px] font-semibold text-gold-light/80 truncate max-w-[84px]">{player.name}</div>
+        <div className="text-xs font-bold text-gold">${player.chips}</div>
       </div>
 
-      {/* Cards */}
-      {player.holeCards.length > 0 && (
+      {/* Cards. Hero always sees their own face-up. Opponents show face-down
+          backs while in the hand (the server strips their real cards), and are
+          revealed at showdown. Folded players (inactive) show nothing. */}
+      {showCards && player.holeCards.length > 0 ? (
         <div className="flex gap-0.5">
-          {showCards ? (
-            <CardGroup cards={player.holeCards} size={isHero ? 'md' : 'sm'} overlap={true} />
-          ) : (
-            <CardGroup cards={player.holeCards} size="sm" faceDown={true} overlap={true} />
-          )}
+          <CardGroup cards={player.holeCards} size={isHero ? 'md' : 'sm'} overlap={true} />
         </div>
-      )}
+      ) : player.isActive ? (
+        <div className="flex gap-0.5">
+          <CardGroup cards={Array(cardCount).fill(0)} size="sm" faceDown={true} overlap={true} />
+        </div>
+      ) : null}
 
       {/* Current bet */}
       {player.currentBet > 0 && (
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
-          className="text-[10px] text-gold/70 font-semibold bg-midnight/80 px-2 py-0.5 rounded-full"
+          className="text-[11px] text-gold/70 font-semibold bg-midnight/80 px-2 py-0.5 rounded-full"
         >
           ${player.currentBet}
         </motion.div>
@@ -194,7 +227,7 @@ function PlayerSeat({
           key={`${lastAction.type}-${lastAction.timestamp}`}
           initial={{ opacity: 0, y: -5 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${actionLabelStyle(lastAction.type)}`}
+          className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${actionLabelStyle(lastAction.type)}`}
         >
           {lastAction.type}{lastAction.amount > 0 ? ` $${lastAction.amount}` : ''}
         </motion.div>

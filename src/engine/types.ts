@@ -55,6 +55,21 @@ export interface GameState {
   minRaise: number;
   handNumber: number;
   isHandComplete: boolean;
+  /** Populated when a hand ends: who won, how much, and with what hand. */
+  showdownResult?: ShowdownResult;
+}
+
+export interface ShowdownResult {
+  /**
+   * Each winner with the hand they actually won with. In a multi-way pot a
+   * side-pot winner may hold a different (e.g. weaker) hand than the main-pot
+   * winner, so the description is recorded per winner rather than once overall.
+   * `handDescription` is null when the pot was won by everyone else folding.
+   */
+  winners: { id: number; name: string; amount: number; handDescription: string | null }[];
+  /** The overall best winning hand category (e.g. "Flush"), or null when everyone else folded. */
+  handDescription: string | null;
+  wonByFold: boolean;
 }
 
 export interface SidePot {

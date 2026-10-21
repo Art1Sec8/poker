@@ -8,11 +8,10 @@ interface CoachPanelProps {
   onToggle: () => void;
   analysis: (CoachAnalysis & { equity: number }) | null;
   isLoading: boolean;
-  handReview: (CoachAnalysis & { equity: number; playerAction: string })[];
   showReview: boolean;
 }
 
-export function CoachPanel({ enabled, onToggle, analysis, isLoading, handReview, showReview }: CoachPanelProps) {
+export function CoachPanel({ enabled, onToggle, analysis, isLoading, showReview }: CoachPanelProps) {
   return (
     <>
       {/* Toggle button */}
@@ -68,42 +67,57 @@ export function CoachPanel({ enabled, onToggle, analysis, isLoading, handReview,
         )}
       </AnimatePresence>
 
-      {/* Post-hand review */}
-      <AnimatePresence>
-        {enabled && showReview && handReview.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="mx-4 mb-2"
-          >
-            <div className="glass rounded-xl p-3">
-              <div className="text-[10px] text-gold/60 uppercase tracking-widest font-semibold mb-2">
-                🎓 Hand Review
-              </div>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {handReview.map((review, i) => (
-                  <div key={i} className="flex items-start gap-2 text-[11px]">
-                    <QualityBadge quality={review.decisionQuality} />
-                    <div>
-                      <span className="text-gold-light/80 font-semibold">
-                        You: {review.playerAction}
-                      </span>
-                      {review.recommendedAction !== review.playerAction.split(' ')[0] && (
-                        <span className="text-gold/50 ml-1">
-                          (suggested: {review.recommendedAction})
-                        </span>
-                      )}
-                      <p className="text-gold-light/40 mt-0.5">{review.reasoning}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </>
+  );
+}
+
+interface CoachHandReviewProps {
+  enabled: boolean;
+  handReview: (CoachAnalysis & { equity: number; playerAction: string })[];
+  showReview: boolean;
+}
+
+/**
+ * Post-hand review block. Rendered in normal document flow at the intended
+ * location (between the hand-complete overlay and the controls) rather than
+ * at the top of the page where CoachPanel itself is mounted.
+ */
+export function CoachHandReview({ enabled, handReview, showReview }: CoachHandReviewProps) {
+  return (
+    <AnimatePresence>
+      {enabled && showReview && handReview.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          className="mx-4 mb-2"
+        >
+          <div className="glass rounded-xl p-3">
+            <div className="text-[10px] text-gold/60 uppercase tracking-widest font-semibold mb-2">
+              🎓 Hand Review
+            </div>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {handReview.map((review, i) => (
+                <div key={i} className="flex items-start gap-2 text-[11px]">
+                  <QualityBadge quality={review.decisionQuality} />
+                  <div>
+                    <span className="text-gold-light/80 font-semibold">
+                      You: {review.playerAction}
+                    </span>
+                    {review.recommendedAction !== review.playerAction.split(' ')[0] && (
+                      <span className="text-gold/50 ml-1">
+                        (suggested: {review.recommendedAction})
+                      </span>
+                    )}
+                    <p className="text-gold-light/40 mt-0.5">{review.reasoning}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 

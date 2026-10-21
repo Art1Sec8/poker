@@ -53,8 +53,8 @@ export const QUIZ_SCENARIOS: QuizScenario[] = [
   },
   {
     variant: 'holdem', holeCards: 'JhJd', board: '', position: 'CO', street: 'preflop',
-    pot: 15, toCall: 30, correctAction: 'call', difficulty: 'medium',
-    explanation: 'Facing a 3-bet with pocket jacks. Calling is standard — you have a strong hand but 3-bet ranges include QQ+ and AK which dominate you.',
+    pot: 130, toCall: 65, correctAction: 'call', difficulty: 'medium',
+    explanation: 'You opened the CO and got 3-bet (note the inflated pot — your open is already in there). Calling is the standard line: JJ is strong, but a 3-bet range leans to QQ+ and AK that have you dominated, and you flop well in position. Folding is too weak; 4-betting is also fine versus an aggressive 3-bettor — this spot is closer than it looks.',
   },
   {
     variant: 'holdem', holeCards: 'AcQc', board: 'Kc8c3h', position: 'BTN', street: 'flop',
@@ -76,6 +76,32 @@ export const QUIZ_SCENARIOS: QuizScenario[] = [
     variant: 'holdem', holeCards: '6h5h', board: '8h7h2d', position: 'BB', street: 'flop',
     pot: 30, toCall: 20, correctAction: 'raise', difficulty: 'hard',
     explanation: 'Open-ended straight flush draw — 15 outs giving you ~54% equity. Raise as a semi-bluff to build the pot and apply pressure.',
+  },
+  // Preflop "facing a raise" — the L6 layer cross-linked from the Range Academy.
+  {
+    variant: 'holdem', holeCards: 'KhTc', board: '', position: 'BB', street: 'preflop',
+    pot: 35, toCall: 15, correctAction: 'call', difficulty: 'medium',
+    explanation: 'Lever: pot odds + position closing the action. KTo is too weak to 3-bet, but you are last to act and getting a great price closing the action from the big blind. Defend by calling against a wide button open.',
+  },
+  {
+    variant: 'holdem', holeCards: 'Ac9d', board: '', position: 'CO', street: 'preflop',
+    pot: 35, toCall: 20, correctAction: 'fold', difficulty: 'medium',
+    explanation: 'Lever: position + domination. A tight UTG player opened and you are next to act with players still behind. A9 offsuit is dominated by every better ace in that range. Fold — it plays badly out of position and gets crushed when it pairs.',
+  },
+  {
+    variant: 'holdem', holeCards: 'AsTs', board: '', position: 'BTN', street: 'preflop',
+    pot: 35, toCall: 20, correctAction: 'raise', difficulty: 'hard',
+    explanation: 'Lever: blocker. ATs makes a fine 3-bet against a CO open: the ace blocks AA and AK, it makes the nut flush, and 3-betting lets you play a big pot in position with a hand that flops well. Apply pressure rather than just calling.',
+  },
+  {
+    variant: 'holdem', holeCards: 'QhQs', board: '', position: 'BTN', street: 'preflop',
+    pot: 35, toCall: 20, correctAction: 'raise', difficulty: 'easy',
+    explanation: 'Lever: raw equity (value). Queens crush a CO opening range. 3-bet for value in position — flatting lets the blinds in cheaply and lets the opener realize equity with hands you dominate.',
+  },
+  {
+    variant: 'holdem', holeCards: '7h6h', board: '', position: 'BB', street: 'preflop',
+    pot: 35, toCall: 15, correctAction: 'call', difficulty: 'medium',
+    explanation: 'Lever: playability. 76 suited rarely makes top pair, but it flops straights and flushes that win whole stacks. Getting a good price to close the action from the big blind, calling a button open is standard — its playability is exactly why it defends.',
   },
   // PLO scenarios
   {

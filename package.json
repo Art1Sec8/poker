@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:server": "tsx server.ts",
+    "dev:clean": "bash scripts/dev-clean.sh",
     "build": "next build",
     "start": "NODE_ENV=production tsx server.ts",
     "start:server": "NODE_ENV=production tsx server.ts",
