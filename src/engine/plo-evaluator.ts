@@ -21,6 +21,7 @@ export function evaluatePloHand(holeCards: Card[], board: Card[]): HandRankResul
   for (const holeCombo of holeCombos) {
     for (const boardCombo of boardCombos) {
       const fiveCards = [...holeCombo, ...boardCombo];
+      // evaluateHand with exactly 5 cards is efficient (no combo search needed)
       const result = evaluateHand(fiveCards);
       if (!bestResult || result.rank < bestResult.rank) {
         bestResult = result;

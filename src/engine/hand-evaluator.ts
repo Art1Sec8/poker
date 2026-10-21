@@ -1,5 +1,5 @@
 import { Card, HandCategory, HandRankResult } from './types';
-import { cardRank, cardSuit } from './card';
+import { cardRank, cardSuit, rankName } from './card';
 
 // ============================================================
 // Hand Evaluator — Combinatorial Ranking System
@@ -354,14 +354,19 @@ export function evaluateHand(cards: Card[]): HandRankResult {
   }
 
   let bestRank = Infinity;
+  let bestCards = cards.slice(0, 5);
 
   if (cards.length === 5) {
     bestRank = evaluate5(cards);
+    bestCards = cards;
   } else {
     for (const combo of combinations(cards.length, 5)) {
       const hand = combo.map(i => cards[i]);
       const rank = evaluate5(hand);
-      if (rank < bestRank) bestRank = rank;
+      if (rank < bestRank) {
+        bestRank = rank;
+        bestCards = hand;
+      }
     }
   }
 
@@ -369,8 +374,52 @@ export function evaluateHand(cards: Card[]): HandRankResult {
   return {
     rank: bestRank,
     category,
-    description: HAND_CATEGORY_NAMES[category],
+    description: describeHand(bestCards, category),
   };
+}
+
+/**
+ * Build a human-readable description of a 5-card hand.
+ */
+function describeHand(cards: Card[], category: HandCategory): string {
+  const ranks = cards.map(cardRank).sort((a, b) => b - a);
+  const rn = (r: number) => rankName(r as 0);
+  const plural = (r: number) => {
+    const name = rn(r);
+    return name === 'Six' ? 'Sixes' : name + (name.endsWith('s') ? 'es' : 's');
+  };
+
+  // Build frequency map sorted by count desc, then rank desc
+  const freq = new Map<number, number>();
+  for (const r of ranks) freq.set(r, (freq.get(r) || 0) + 1);
+  const groups = [...freq.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0]);
+
+  switch (category) {
+    case 'royal-flush':
+      return 'Royal Flush';
+    case 'straight-flush': {
+      const high = ranks[0] === 12 && ranks[1] === 3 ? 3 : ranks[0];
+      return `Straight Flush, ${rn(high)}-high`;
+    }
+    case 'four-of-a-kind':
+      return `Four ${plural(groups[0][0])}`;
+    case 'full-house':
+      return `Full House, ${plural(groups[0][0])} full of ${plural(groups[1][0])}`;
+    case 'flush':
+      return `Flush, ${rn(ranks[0])}-high`;
+    case 'straight': {
+      const high = ranks[0] === 12 && ranks[1] === 3 ? 3 : ranks[0];
+      return `Straight, ${rn(high)}-high`;
+    }
+    case 'three-of-a-kind':
+      return `Three ${plural(groups[0][0])}`;
+    case 'two-pair':
+      return `Two Pair, ${plural(groups[0][0])} and ${plural(groups[1][0])}`;
+    case 'one-pair':
+      return `Pair of ${plural(groups[0][0])}`;
+    case 'high-card':
+      return `${rn(ranks[0])}-high`;
+  }
 }
 
 /**
