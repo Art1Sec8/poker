@@ -1,4 +1,5 @@
 import { Card } from './types';
+import { randomInt } from './rng';
 
 /**
  * Create a standard 52-card deck (cards 0-51).
@@ -12,21 +13,12 @@ export function createDeck(): Card[] {
 }
 
 /**
- * Cryptographically secure random integer in [0, max).
- */
-function secureRandomInt(max: number): number {
-  const array = new Uint32Array(1);
-  crypto.getRandomValues(array);
-  return array[0] % max;
-}
-
-/**
- * Fisher-Yates shuffle using crypto.getRandomValues for fairness.
+ * Fisher-Yates shuffle. Cryptographically random unless the engine RNG is seeded (see rng.ts).
  * Mutates and returns the array.
  */
 export function shuffleDeck(deck: Card[]): Card[] {
   for (let i = deck.length - 1; i > 0; i--) {
-    const j = secureRandomInt(i + 1);
+    const j = randomInt(i + 1);
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
   return deck;

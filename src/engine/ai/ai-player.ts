@@ -2,6 +2,7 @@ import { ActionRecord, GameState } from '../types';
 import { FishAI } from './fish-ai';
 import { RegularAI } from './regular-ai';
 import { SharkAI } from './shark-ai';
+import { random } from '../rng';
 
 export interface AIPlayer {
   difficulty: 'fish' | 'regular' | 'shark';
@@ -10,7 +11,7 @@ export interface AIPlayer {
 
 export function createAIPlayer(difficulty: 'fish' | 'regular' | 'shark' | 'random'): AIPlayer {
   const actualDifficulty = difficulty === 'random'
-    ? (['fish', 'regular', 'shark'] as const)[Math.floor(Math.random() * 3)]
+    ? (['fish', 'regular', 'shark'] as const)[Math.floor(random() * 3)]
     : difficulty;
 
   switch (actualDifficulty) {

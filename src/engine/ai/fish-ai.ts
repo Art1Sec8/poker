@@ -1,6 +1,7 @@
 import { AIPlayer } from './ai-player';
 import { ActionRecord, GameState } from '../types';
 import { getValidActions, getAmountToCall } from '../betting';
+import { random } from '../rng';
 
 /**
  * Fish AI: Loose-passive player.
@@ -20,7 +21,7 @@ export class FishAI implements AIPlayer {
 
     const toCall = getAmountToCall(tempState);
     const player = state.players[playerIndex];
-    const roll = Math.random();
+    const roll = random();
 
     if (toCall > 0) {
       // Facing a bet

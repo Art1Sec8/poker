@@ -6,6 +6,7 @@ import { useGame } from '@/context/GameContext';
 import { useUI } from '@/context/UIContext';
 import { useGameState } from '@/hooks/useGameState';
 import { useCoach } from '@/hooks/useCoach';
+import { seedRandom } from '@/engine/rng';
 import { GameVariantToggle } from '@/components/shared/GameVariantToggle';
 import { StakesSelector } from '@/components/shared/StakesSelector';
 import { PokerTable } from '@/components/play/PokerTable';
@@ -36,6 +37,12 @@ export default function PlayPage() {
   const [showStats, setShowStats] = useState(false);
 
   function handleStartGame() {
+    // ?seed=<int> makes the deck and AI deterministic for this tab, so a game
+    // replays identically. Used by the end-to-end tests. Solo play only: the
+    // multiplayer server never seeds its RNG.
+    const seedParam = new URLSearchParams(window.location.search).get('seed');
+    const seed = seedParam !== null && /^\d+$/.test(seedParam) ? Number(seedParam) : null;
+    seedRandom(seed);
     const aiSeats = Array.from({ length: numAI }, () => ({ difficulty: aiDifficulty }));
     game.startGame({
       variant,

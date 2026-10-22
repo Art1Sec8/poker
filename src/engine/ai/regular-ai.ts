@@ -4,6 +4,7 @@ import { getValidActions, getAmountToCall } from '../betting';
 import { evaluateHand } from '../hand-evaluator';
 import { evaluatePloHand } from '../plo-evaluator';
 import { evaluatePreflopStrength } from '../preflop';
+import { random } from '../rng';
 
 /**
  * Regular AI: Tight-aggressive (TAG) player.
@@ -33,7 +34,7 @@ export class RegularAI implements AIPlayer {
       if (adjustedStrength > 0.8) {
         const raiseAction = actions.find(a => a.type === 'raise');
         if (raiseAction) {
-          const sizeFactor = 0.6 + Math.random() * 0.4;
+          const sizeFactor = 0.6 + random() * 0.4;
           const amount = Math.floor(raiseAction.minAmount + (raiseAction.maxAmount - raiseAction.minAmount) * sizeFactor);
           return this.makeAction(playerIndex, 'raise', Math.min(amount, player.chips), state.street);
         }
@@ -51,7 +52,7 @@ export class RegularAI implements AIPlayer {
     if (adjustedStrength > 0.65) {
       const betAction = actions.find(a => a.type === 'bet');
       if (betAction) {
-        const potFraction = 0.5 + Math.random() * 0.3;
+        const potFraction = 0.5 + random() * 0.3;
         const amount = Math.max(betAction.minAmount, Math.floor(state.pot * potFraction));
         return this.makeAction(playerIndex, 'bet', Math.min(amount, betAction.maxAmount, player.chips), state.street);
       }

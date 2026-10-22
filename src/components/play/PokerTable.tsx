@@ -67,9 +67,9 @@ export function PokerTable({ state, timerSeconds, isTimerRunning, heroId }: Poke
           className="text-gold font-bold text-lg"
           style={{ fontFamily: "'Playfair Display', serif" }}
         >
-          ${state.pot}
+          <span data-testid="pot">${state.pot}</span>
         </motion.div>
-        <div className="text-[10px] text-gold/40 uppercase tracking-widest">{state.street}</div>
+        <div className="text-[10px] text-gold/40 uppercase tracking-widest" data-testid="street">{state.street}</div>
       </div>
 
       {/* Board cards */}

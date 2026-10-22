@@ -4,6 +4,7 @@ import { getValidActions, getAmountToCall } from '../betting';
 import { evaluateHand } from '../hand-evaluator';
 import { evaluatePloHand } from '../plo-evaluator';
 import { evaluatePreflopStrength } from '../preflop';
+import { random } from '../rng';
 
 /**
  * Shark AI: GTO-adjacent player.
@@ -43,10 +44,10 @@ export class SharkAI implements AIPlayer {
       }
 
       // Semi-bluff raise
-      if (adjustedEquity > 0.35 && adjustedEquity < 0.55 && Math.random() < bluffFreq) {
+      if (adjustedEquity > 0.35 && adjustedEquity < 0.55 && random() < bluffFreq) {
         const raiseAction = actions.find(a => a.type === 'raise');
         if (raiseAction) {
-          const size = Math.floor(state.pot * (0.6 + Math.random() * 0.2));
+          const size = Math.floor(state.pot * (0.6 + random() * 0.2));
           return this.makeAction(playerIndex, 'raise',
             Math.min(Math.max(size, raiseAction.minAmount), raiseAction.maxAmount, player.chips), state.street);
         }
@@ -70,10 +71,10 @@ export class SharkAI implements AIPlayer {
     }
 
     // Bluff bet
-    if (adjustedEquity < 0.3 && Math.random() < bluffFreq * 0.5) {
+    if (adjustedEquity < 0.3 && random() < bluffFreq * 0.5) {
       const betAction = actions.find(a => a.type === 'bet');
       if (betAction) {
-        const size = Math.floor(state.pot * (0.3 + Math.random() * 0.4));
+        const size = Math.floor(state.pot * (0.3 + random() * 0.4));
         return this.makeAction(playerIndex, 'bet',
           Math.min(Math.max(size, betAction.minAmount), betAction.maxAmount, player.chips), state.street);
       }
@@ -106,13 +107,13 @@ export class SharkAI implements AIPlayer {
 
   private chooseRaiseSize(state: GameState, equity: number, min: number, max: number): number {
     if (equity > 0.85) {
-      return Math.max(min, Math.floor(state.pot * (0.75 + Math.random() * 0.5)));
+      return Math.max(min, Math.floor(state.pot * (0.75 + random() * 0.5)));
     }
-    return Math.max(min, Math.floor(state.pot * (0.5 + Math.random() * 0.25)));
+    return Math.max(min, Math.floor(state.pot * (0.5 + random() * 0.25)));
   }
 
   private chooseBetSize(state: GameState, min: number, max: number): number {
-    const roll = Math.random();
+    const roll = random();
     if (roll < 0.3) return Math.max(min, Math.floor(state.pot * 0.33));
     if (roll < 0.7) return Math.max(min, Math.floor(state.pot * 0.66));
     return Math.max(min, Math.floor(state.pot * 1.0));
