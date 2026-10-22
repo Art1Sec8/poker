@@ -11,7 +11,9 @@
     "start:server": "NODE_ENV=production tsx server.ts",
     "lint": "eslint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:prod": "PLAYWRIGHT_BASE_URL=https://poker-production-6c4a.up.railway.app playwright test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
@@ -26,6 +28,7 @@
     "tsx": "^4.21.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
