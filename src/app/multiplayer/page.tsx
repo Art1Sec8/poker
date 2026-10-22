@@ -264,7 +264,7 @@ export default function MultiplayerPage() {
               <h1 className="text-lg font-bold text-gold-light" style={{ fontFamily: "'Playfair Display', serif" }}>
                 Room
               </h1>
-              <div className="text-gold font-mono tracking-[0.3em] text-lg font-bold">{mp.roomState.id}</div>
+              <div className="text-gold font-mono tracking-[0.3em] text-lg font-bold" data-testid="room-code">{mp.roomState.id}</div>
             </div>
             <div className="w-16" />
           </div>

@@ -61,4 +61,13 @@ describe('equity calculator', () => {
     expect(result.equities[0]).toBeGreaterThan(0.50);
     expect(result.samples).toBe(2000);
   });
+
+  it('PLO: AAKK double-suited vs a suited rundown lands near 64%', () => {
+    const aakk = parseCards('AsAhKsKh');
+    const rundown = parseCards('JhTh9c8c');
+    const result = calculateEquity([aakk, rundown], [], 'plo', 20000);
+    expect(result.equities[0]).toBeGreaterThan(0.59);
+    expect(result.equities[0]).toBeLessThan(0.69);
+    expect(result.equities[0] + result.equities[1]).toBeCloseTo(1, 2);
+  });
 });

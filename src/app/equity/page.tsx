@@ -45,7 +45,7 @@ export default function EquityPage() {
         </div>
 
         {/* Hand 1 */}
-        <div className="glass rounded-xl p-4 mb-3">
+        <div className="glass rounded-xl p-4 mb-3" data-testid="equity-hand-1">
           <label className="text-[10px] text-gold/60 uppercase tracking-widest font-semibold mb-2 block">
             Hand 1 ({handSize} cards)
           </label>
@@ -62,7 +62,7 @@ export default function EquityPage() {
         <div className="text-center text-gold/40 text-xs font-bold tracking-widest my-1">VS</div>
 
         {/* Hand 2 */}
-        <div className="glass rounded-xl p-4 mb-3">
+        <div className="glass rounded-xl p-4 mb-3" data-testid="equity-hand-2">
           <label className="text-[10px] text-gold/60 uppercase tracking-widest font-semibold mb-2 block">
             Hand 2 ({handSize} cards)
           </label>
@@ -76,7 +76,7 @@ export default function EquityPage() {
         </div>
 
         {/* Board */}
-        <div className="glass rounded-xl p-4 mb-4">
+        <div className="glass rounded-xl p-4 mb-4" data-testid="equity-board">
           <label className="text-[10px] text-gold/60 uppercase tracking-widest font-semibold mb-2 block">
             Board (0-5 cards)
           </label>
@@ -124,7 +124,7 @@ export default function EquityPage() {
                   <span className="text-sm font-semibold text-gold-light">
                     Hand {i + 1}: <HandDisplay cards={i === 0 ? hand1 : hand2} />
                   </span>
-                  <span className="text-lg font-bold text-gold">{(eq * 100).toFixed(1)}%</span>
+                  <span className="text-lg font-bold text-gold" data-testid={`equity-result-${i + 1}`}>{(eq * 100).toFixed(1)}%</span>
                 </div>
                 <div className="h-3 bg-midnight rounded-full overflow-hidden">
                   <motion.div

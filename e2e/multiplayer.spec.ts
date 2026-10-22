@@ -8,7 +8,7 @@ test('a second player joins by room code and chat relays', async ({ page, browse
   await page.getByRole('button', { name: 'Create Room' }).click();
   await expect(page.getByRole('heading', { name: 'Room', exact: true })).toBeVisible({ timeout: 20_000 });
 
-  const code = (await page.locator('div.font-mono').first().textContent())?.trim() ?? '';
+  const code = (await page.getByTestId('room-code').textContent())?.trim() ?? '';
   expect(code).toMatch(/^[A-Z0-9]{4,6}$/);
 
   const guestCtx = await browser.newContext();
