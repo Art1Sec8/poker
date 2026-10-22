@@ -47,7 +47,7 @@ The Playwright suite runs every test on a desktop and a mobile viewport. It cove
 - **Multiplayer:** two browser contexts join a room by code, chat, and ready up.
 - **API:** the dev-only coach feed is closed in production.
 
-Each test fails on any uncaught page error. Locators are role and text based, with `data-testid` only where there is no accessible name. CI runs lint, Vitest, and Playwright on every push and pull request, and uploads the HTML report and traces when a test fails.
+Each test fails on any uncaught page error. Locators are role and text based, with `data-testid` only where there is no accessible name. CI runs Vitest and Playwright on every push and pull request, and uploads the HTML report and traces when a test fails.
 
 **Deterministic play.** `?seed=<int>` on `/play` swaps the engine's random source for a seeded generator, so the deck and AI decisions replay exactly. It only affects that browser tab. The multiplayer server never seeds, so real games keep a cryptographic shuffle.
 
