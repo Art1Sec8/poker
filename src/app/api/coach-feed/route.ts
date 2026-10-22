@@ -7,10 +7,16 @@ export const runtime = 'nodejs';
 
 const FEED_PATH = path.join(process.cwd(), 'coach-feed.jsonl');
 
+// The feed is a local-dev tool: an unauthenticated append-to-disk endpoint has
+// no business on a public deploy. Off in production unless explicitly enabled.
+const enabled = process.env.NODE_ENV !== 'production' || process.env.COACH_FEED_ENABLED === '1';
+const notFound = () => NextResponse.json({ error: 'Not found' }, { status: 404 });
+
 // The Range Academy POSTs a coaching event here; we append it as one JSON line.
 // A human coach (Claude Code in the terminal) tails coach-feed.jsonl to react to
 // the live session — which hands were explored, how a drill scored, etc.
 export async function POST(request: NextRequest) {
+  if (!enabled) return notFound();
   try {
     const event = await request.json();
     const line = JSON.stringify({ ts: new Date().toISOString(), ...event }) + '\n';
@@ -24,6 +30,7 @@ export async function POST(request: NextRequest) {
 
 // Convenience reader (last N lines) so the feed can also be fetched over HTTP.
 export async function GET(request: NextRequest) {
+  if (!enabled) return notFound();
   try {
     const limit = Number(request.nextUrl.searchParams.get('limit') ?? '40');
     const raw = await readFile(FEED_PATH, 'utf8').catch(() => '');
