@@ -1,5 +1,7 @@
 # Poker
 
+[![CI](https://github.com/Art1Sec8/poker/actions/workflows/ci.yml/badge.svg)](https://github.com/Art1Sec8/poker/actions/workflows/ci.yml)
+
 A Texas Hold'em and Pot-Limit Omaha trainer. Play against AI opponents, drill preflop ranges, quiz yourself on spots, and run equity calculations. Built with Next.js, React, and socket.io.
 
 ## Features
@@ -26,14 +28,30 @@ npm run dev:server     # Next.js + socket.io on http://localhost:3000
 | --- | --- |
 | `ANTHROPIC_API_KEY` | The AI coach (`/api/coach`). Everything else works without it. |
 | `PORT` | Server port, defaults to 3000. |
+| `COACH_FEED_ENABLED` | Set to `1` to allow the local coaching feed (`/api/coach-feed`) in a production build. Off by default. |
 
 ## Tests
 
 ```bash
-npm test
+npm test               # Vitest unit tests: evaluators, betting, game state, side pots, equity, RNG
+npm run test:e2e       # Playwright: builds and serves on :3100, then runs the browser suite
+npm run test:e2e:prod  # same browser suite against the live Railway deploy
 ```
 
-Engine tests cover the hand evaluator, betting rules, game state, side pots, and range notation.
+The Playwright suite runs every test on a desktop and a mobile viewport. It covers:
+
+- **Smoke:** every route renders, home cards and bottom nav navigate.
+- **Play vs AI:** deterministic hands via `/play?seed=N`. Checking down to a known showdown, losing to a named hand, folding to a turn bet, replaying the same seed, and the coach panel with a mocked coach API.
+- **Equity:** AA vs KK in Hold'em and AAKK double-suited vs JT98 in PLO, asserted as ranges because the calculator is Monte Carlo.
+- **Range Academy:** explore detail sheet, mode switching, and grading a drill.
+- **Multiplayer:** two browser contexts join a room by code, chat, and ready up.
+- **API:** the dev-only coach feed is closed in production.
+
+Each test fails on any uncaught page error. Locators are role and text based, with `data-testid` only where there is no accessible name. CI runs lint, Vitest, and Playwright on every push and pull request, and uploads the HTML report and traces when a test fails.
+
+**Deterministic play.** `?seed=<int>` on `/play` swaps the engine's random source for a seeded generator, so the deck and AI decisions replay exactly. It only affects that browser tab. The multiplayer server never seeds, so real games keep a cryptographic shuffle.
+
+**Known bug.** The equity calculator's Clear button leaves the previous results on screen. Its test is marked `test.fail` until that's fixed.
 
 ## Deploy
 
